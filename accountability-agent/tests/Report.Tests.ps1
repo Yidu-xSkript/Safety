@@ -20,4 +20,7 @@ Describe "Format-AlertEmail" {
     It "labels an unapproved-VPN alert" {
         (Format-AlertEmail -Kind "UnapprovedVPN" -Detail "203.0.113.9").Subject | Should Match "Unapproved VPN"
     }
+    It "labels a time-box alert" {
+        (Format-AlertEmail -Kind "TimeBox" -Detail "TikTok").Subject | Should Match "Time-box"
+    }
 }

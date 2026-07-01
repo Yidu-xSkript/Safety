@@ -1,7 +1,11 @@
 function Set-NextDnsLock {
-    # Re-apply NextDNS on every active interface if it has drifted.
+    # Re-apply NextDNS on every active NON-VPN interface if it has drifted.
+    # VPN adapters (incl. the approved work VPN) are left untouched so we never
+    # break the tunnel's own name resolution.
     param([Parameter(Mandatory)][string[]]$NextDnsIps)
-    Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object Status -eq 'Up' | ForEach-Object {
+    $vpnPattern = 'VPN|TAP|TUN|WireGuard|Wintun|OpenVPN|WAN Miniport \((IKEv2|L2TP|PPTP|SSTP|Network Monitor)\)'
+    Get-NetAdapter -ErrorAction SilentlyContinue |
+        Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -notmatch $vpnPattern } | ForEach-Object {
         $cur = (Get-DnsClientServerAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses
         if (($cur -join ',') -ne ($NextDnsIps -join ',')) {
             Set-DnsClientServerAddress -InterfaceIndex $_.ifIndex -ServerAddresses $NextDnsIps -ErrorAction SilentlyContinue
@@ -35,18 +39,24 @@ function Disable-VpnAdapter {
 
 function Set-HostsBlock {
     # Idempotently maintain a managed block section in the hosts file.
+    # Rewrites the file only when content actually changes (avoids ~per-poll churn/races).
     param([string[]]$Domains = @(), [string]$HostsPath = "$env:WINDIR\System32\drivers\etc\hosts")
     $begin = "# BEGIN AccountabilityAgent"; $end = "# END AccountabilityAgent"
-    $content = if (Test-Path $HostsPath) { Get-Content $HostsPath } else { @() }
-    # Strip any existing managed block.
+    $content = if (Test-Path $HostsPath) { @(Get-Content $HostsPath) } else { @() }
+    # Strip a previous managed block. If a BEGIN has no matching END (corruption/partial
+    # write), only the stray BEGIN marker is dropped so we never swallow the rest of the file.
+    $hasEnd = $content -contains $end
     $kept = @(); $inBlock = $false
     foreach ($line in $content) {
-        if ($line -eq $begin) { $inBlock = $true; continue }
+        if ($line -eq $begin) { if ($hasEnd) { $inBlock = $true }; continue }
         if ($line -eq $end)   { $inBlock = $false; continue }
         if (-not $inBlock)    { $kept += $line }
     }
     $block = @($begin) + ($Domains | ForEach-Object { "127.0.0.1 $_" }) + @($end)
-    Set-Content -Path $HostsPath -Value ($kept + $block) -Encoding ASCII
+    $new = @($kept + $block)
+    if (($new -join "`n") -ne ($content -join "`n")) {
+        Set-Content -Path $HostsPath -Value $new -Encoding ASCII
+    }
 }
 
 Export-ModuleMember -Function Set-NextDnsLock, Set-DohFirewallBlock, Disable-VpnAdapter, Set-HostsBlock

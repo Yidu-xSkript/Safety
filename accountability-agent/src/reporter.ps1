@@ -1,10 +1,13 @@
-param([string]$DataDir = "C:\ProgramData\AccountabilityAgent")
+param(
+    [string]$SecretsDir = "C:\ProgramData\AccountabilityAgent",
+    [string]$RuntimeDir = "C:\ProgramData\AccountabilityAgentRuntime"
+)
 
 Import-Module "$PSScriptRoot/Common.psm1" -Force
 Import-Module "$PSScriptRoot/Report.psm1" -Force
 
-$cfg   = Get-AgentConfig -Path (Join-Path $DataDir "agent-config.json")
-$spool = Join-Path $DataDir "spool.txt"
+$cfg   = Get-AgentConfig -Path (Join-Path $SecretsDir "agent-config.json")
+$spool = Join-Path $RuntimeDir "spool.txt"
 
 $samples = @()
 if (Test-Path $spool) { $samples = Get-Content -Path $spool }
