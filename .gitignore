@@ -1,0 +1,5 @@
+# runtime secrets / data never belong in git
+*-config.json
+!*-config.example.json
+*.log
+spool/

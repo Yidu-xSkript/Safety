@@ -1,0 +1,23 @@
+{
+  "role": "protected-user-A",
+  "witnessEmail": "friend@example.com",
+  "supporterEmail": null,
+  "approvedVpnIps": ["181.214.9.54"],
+  "nextDnsIps": ["45.90.28.0", "45.90.30.0"],
+  "reportIntervalMinutes": 60,
+  "heartbeatStaleSeconds": 180,
+  "vpnPollSeconds": 5,
+  "appPolicies": [
+    { "name": "Instagram", "policy": "block",       "domains": ["instagram.com", "cdninstagram.com"], "titleMatch": "Instagram", "dailyLimitMinutes": null },
+    { "name": "TikTok",    "policy": "time-box",     "domains": ["tiktok.com"],                        "titleMatch": "TikTok",    "dailyLimitMinutes": 20 },
+    { "name": "Reddit",    "policy": "report-only",  "domains": ["reddit.com"],                        "titleMatch": "Reddit",    "dailyLimitMinutes": null }
+  ],
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "useSsl": true,
+    "username": "sender@example.com",
+    "appPassword": "REPLACE_WITH_APP_PASSWORD",
+    "fromAddress": "sender@example.com"
+  }
+}
