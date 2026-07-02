@@ -15,4 +15,13 @@ function Format-AlertEmail {
     }
 }
 
-Export-ModuleMember -Function Format-WitnessReport, Format-AlertEmail
+function Format-SupporterEmail {
+    # Encouragement-only, for the partner (Supporter). NO raw data — a milestone + current streak.
+    param([Parameter(Mandatory)][int]$StreakDays, [int]$Milestone)
+    return @{
+        Subject = "Encouragement update: $StreakDays days strong"
+        Body = "Good news to share: a milestone of $Milestone consecutive clean days has been reached (currently at $StreakDays). No activity details are included here — just the progress. Thank you for being in their corner."
+    }
+}
+
+Export-ModuleMember -Function Format-WitnessReport, Format-AlertEmail, Format-SupporterEmail

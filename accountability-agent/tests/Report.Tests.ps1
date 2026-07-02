@@ -24,3 +24,11 @@ Describe "Format-AlertEmail" {
         (Format-AlertEmail -Kind "TimeBox" -Detail "TikTok").Subject | Should Match "Time-box"
     }
 }
+
+Describe "Format-SupporterEmail" {
+    It "reports the streak without any raw activity data" {
+        $e = Format-SupporterEmail -StreakDays 7 -Milestone 7
+        $e.Subject | Should Match "7 days"
+        $e.Body    | Should Match "clean days"
+    }
+}

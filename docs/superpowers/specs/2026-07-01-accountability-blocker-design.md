@@ -32,6 +32,8 @@ Devices: **Windows PC + Android.** Same standard-user rule. User A holds B's sec
 ### 2.4 Supporter (Partner mode) — optional, either user
 A romantic partner may optionally be added as a **Supporter**: encouragement-only. Receives streaks, milestones, "clean week" confirmations. **Never** raw URLs, history, window titles, or relapse details. Keeps a partner included and encouraged without deputizing them as an enforcer or re-injuring them with raw data. Off unless explicitly enabled.
 
+**Implemented (v1):** milestone emails to `supporterEmail` at `supporterMilestones` (default 7/30/90 days). A **clean day** = a day with no unapproved-VPN kill and no time-box breach (the agent-visible signals); the streak resets on a flagged day. Streak state lives in the **admin-only secrets dir** (SYSTEM-written) so the protected user cannot fabricate a milestone. **Honest caveat:** this uses only agent-visible signals — it does **not** yet detect an actual porn-site visit (that lives in NextDNS); making the streak fully truthful would require pulling NextDNS logs via its API (future work). It is encouragement, not a lie-detector.
+
 ---
 
 ## 3. Architecture (two layers, mirrored per person)
