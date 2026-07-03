@@ -37,6 +37,18 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // JavaMail's two jars both ship META-INF/NOTICE.md etc., which collide during
+    // resource merge. Drop the duplicate license/notice files from the packaged APK.
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/NOTICE.md", "META-INF/LICENSE.md",
+                "META-INF/NOTICE", "META-INF/LICENSE",
+                "META-INF/DEPENDENCIES", "META-INF/INDEX.LIST"
+            )
+        }
+    }
 }
 
 flutter {
