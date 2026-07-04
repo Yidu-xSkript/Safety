@@ -18,6 +18,7 @@ $tamperNotified = $false
 $timeBoxAlerted = @{}   # "app|yyyyMMdd" -> $true, so each over-limit app alerts the witness once per day
 $tamperAlerted  = @{}   # "kind|yyyyMMdd" -> $true, so each tamper kind alerts the witness once per day
 $firstLoop      = $true # suppress alerts on the initial DNS/hosts application (that's setup, not tampering)
+$failsafeTripped = $false # true while NextDNS is unreachable and the DNS lock has been backed off
 $configPath = Join-Path $SecretsDir "agent-config.json"
 $configHash = try { (Get-FileHash -Path $configPath -Algorithm SHA256 -ErrorAction Stop).Hash } catch { "" }
 
@@ -45,7 +46,8 @@ $streak = if (Test-Path $streakFile) {
 }
 $lastStreakSerialized = ($streak | ConvertTo-Json -Compress)
 
-Set-DohFirewallBlock -NextDnsIps $cfg.nextDnsIps
+# NOTE: the DNS firewall lock is applied INSIDE the loop, and only when NextDNS is verified
+# reachable (see the DNS section). This is the fail-safe: we never strangle DNS blindly.
 
 while ($true) {
   # One transient failure (SMTP hiccup, partial file read) must not kill the loop and
@@ -66,16 +68,32 @@ while ($true) {
         $streak.Flagged = $true   # today is not a clean day
     }
 
-    # --- DNS re-lock (non-VPN adapters only) + tamper alert ---
-    $dnsChanged = Set-NextDnsLock -NextDnsIps $cfg.nextDnsIps
-    if ($dnsChanged -and -not $firstLoop) {
-        $streak.Flagged = $true
-        $k = "DnsTamper|$day"
-        if (-not $tamperAlerted[$k]) {
-            $al = Format-AlertEmail -Kind "DnsTamper" -Detail ""
-            Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
-            Write-AgentLog "Tamper: DNS changed away from NextDNS; restored + alerted."
-            $tamperAlerted[$k] = $true
+    # --- DNS lock (fail-safe): only lock DNS to NextDNS when NextDNS actually resolves. ---
+    # If NextDNS is unreachable (wrong IPs, Linked-IP not set, VPN, outage), back off: remove the
+    # DNS firewall block and reset DNS to automatic so the machine NEVER loses connectivity.
+    if (Test-NextDnsReachable -NextDnsIps $cfg.nextDnsIps) {
+        if ($failsafeTripped) { Write-AgentLog "NextDNS reachable again; re-arming DNS lock."; $failsafeTripped = $false }
+        Set-DohFirewallBlock -NextDnsIps $cfg.nextDnsIps
+        $dnsChanged = Set-NextDnsLock -NextDnsIps $cfg.nextDnsIps
+        if ($dnsChanged -and -not $firstLoop) {
+            $streak.Flagged = $true
+            $k = "DnsTamper|$day"
+            if (-not $tamperAlerted[$k]) {
+                $al = Format-AlertEmail -Kind "DnsTamper" -Detail ""
+                Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                Write-AgentLog "Tamper: DNS changed away from NextDNS; restored + alerted."
+                $tamperAlerted[$k] = $true
+            }
+        }
+    } else {
+        # NextDNS not answering — do NOT strangle DNS. Back off to keep the machine online.
+        Remove-DohFirewallBlock
+        Reset-DnsToAuto
+        if (-not $failsafeTripped) {
+            $al = Format-AlertEmail -Kind "DnsFailsafe" -Detail ""
+            try { Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body } catch { }
+            Write-AgentLog "NextDNS unreachable; DNS lock backed off to preserve connectivity."
+            $failsafeTripped = $true
         }
     }
 

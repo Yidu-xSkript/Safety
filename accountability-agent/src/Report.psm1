@@ -14,6 +14,7 @@ function Format-AlertEmail {
         "DnsTamper"     { return @{ Subject = "[Accountability] Tamper: DNS changed"; Body = "DNS was changed away from NextDNS and has been restored. $Detail" } }
         "ConfigTamper"  { return @{ Subject = "[Accountability] Tamper: config altered"; Body = "The agent configuration file was modified. The agent keeps running on its original settings. $Detail" } }
         "UninstallAttempt" { return @{ Subject = "[Accountability] Uninstall attempt (wrong password)"; Body = "Someone ran the uninstaller with the wrong password. Uninstall was refused. $Detail" } }
+        "DnsFailsafe"   { return @{ Subject = "[Accountability] NextDNS unreachable - DNS lock backed off"; Body = "NextDNS did not answer, so the agent removed the DNS lock to keep the machine online. Filtering via NextDNS is currently NOT active; hosts-file blocking (porn/SafeSearch/apps) still applies. Check the NextDNS config/IPs. $Detail" } }
         "TimeBox"       { return @{ Subject = "[Accountability] Time-box limit reached: $Detail"; Body = "Daily time limit exceeded for: $Detail. The app is now blocked for the rest of the day." } }
         default         { return @{ Subject = "[Accountability] Alert: $Kind"; Body = $Detail } }
     }

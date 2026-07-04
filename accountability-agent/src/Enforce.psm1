@@ -36,6 +36,52 @@ function Set-DohFirewallBlock {
     }
 }
 
+function Test-NextDnsReachable {
+    # Verify at least one NextDNS IP actually answers DNS over UDP:53 (the real DNS path). Sends a
+    # raw DNS query for example.com and waits for any reply. This deliberately avoids
+    # Resolve-DnsName (which falls back to the DNS cache and can't tell a dead server from a live
+    # one). Gates the DNS firewall lock so we never strangle all DNS when NextDNS is unreachable.
+    param([Parameter(Mandatory)][string[]]$NextDnsIps, [int]$TimeoutMs = 2000)
+    # Minimal DNS query packet: header (id 0x1234, RD flag, qdcount=1) + question example.com A IN.
+    $q = New-Object System.Collections.Generic.List[byte]
+    $q.AddRange([byte[]](0x12,0x34, 0x01,0x00, 0x00,0x01, 0x00,0x00, 0x00,0x00, 0x00,0x00))
+    foreach ($label in @('example','com')) {
+        $q.Add([byte]$label.Length)
+        $q.AddRange([System.Text.Encoding]::ASCII.GetBytes($label))
+    }
+    $q.Add(0)
+    $q.AddRange([byte[]](0x00,0x01, 0x00,0x01))   # QTYPE A, QCLASS IN
+    $bytes = $q.ToArray()
+
+    foreach ($ip in $NextDnsIps) {
+        $udp = $null
+        try {
+            $udp = New-Object System.Net.Sockets.UdpClient
+            $udp.Client.ReceiveTimeout = $TimeoutMs
+            $udp.Connect($ip, 53)
+            [void]$udp.Send($bytes, $bytes.Length)
+            $remote = New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Any, 0)
+            $resp = $udp.Receive([ref]$remote)
+            if ($resp.Length -gt 0) { $udp.Close(); return $true }
+        } catch { }
+        finally { if ($udp) { $udp.Close() } }
+    }
+    return $false
+}
+
+function Remove-DohFirewallBlock {
+    # Remove the DNS-lock firewall rules (used to back off when NextDNS is unreachable).
+    Get-NetFirewallRule -DisplayName "AA-Block-DoH", "AA-Block-Plain-DNS", "AA-Allow-NextDNS" `
+        -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
+}
+
+function Reset-DnsToAuto {
+    # Reset DNS to DHCP/automatic on every up adapter (recover connectivity on back-off).
+    Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object Status -eq 'Up' | ForEach-Object {
+        Set-DnsClientServerAddress -InterfaceIndex $_.ifIndex -ResetServerAddresses -ErrorAction SilentlyContinue
+    }
+}
+
 function Disable-VpnAdapter {
     param([Parameter(Mandatory)]$Adapters)
     foreach ($a in $Adapters) {
@@ -76,4 +122,4 @@ function Set-HostsBlock {
     return $false
 }
 
-Export-ModuleMember -Function Set-NextDnsLock, Set-DohFirewallBlock, Disable-VpnAdapter, Set-HostsBlock
+Export-ModuleMember -Function Set-NextDnsLock, Set-DohFirewallBlock, Disable-VpnAdapter, Set-HostsBlock, Test-NextDnsReachable, Remove-DohFirewallBlock, Reset-DnsToAuto

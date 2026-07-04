@@ -32,6 +32,9 @@ Describe "Format-AlertEmail" {
     It "labels a config-tamper alert" {
         (Format-AlertEmail -Kind "ConfigTamper" -Detail "").Subject | Should Match "config"
     }
+    It "labels a DNS fail-safe alert" {
+        (Format-AlertEmail -Kind "DnsFailsafe" -Detail "").Subject | Should Match "NextDNS unreachable"
+    }
 }
 
 Describe "Format-SupporterEmail" {
