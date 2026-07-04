@@ -9,6 +9,7 @@ Import-Module "$PSScriptRoot/Report.psm1"    -Force
 Import-Module "$PSScriptRoot/Enforce.psm1"   -Force
 Import-Module "$PSScriptRoot/Policy.psm1"    -Force
 Import-Module "$PSScriptRoot/Streak.psm1"    -Force
+Import-Module "$PSScriptRoot/Blocklist.psm1" -Force
 
 $cfg       = Get-AgentConfig -Path (Join-Path $SecretsDir "agent-config.json")
 $heartbeat = Join-Path $RuntimeDir "monitor.heartbeat"
@@ -17,9 +18,18 @@ $tamperNotified = $false
 $timeBoxAlerted = @{}   # "app|yyyyMMdd" -> $true, so each over-limit app alerts the witness once per day
 $tamperAlerted  = @{}   # "kind|yyyyMMdd" -> $true, so each tamper kind alerts the witness once per day
 $firstLoop      = $true # suppress alerts on the initial DNS/hosts application (that's setup, not tampering)
-$lastDesiredKey = ""    # last desired hosts-domain set, to tell agent-driven changes from external edits
 $configPath = Join-Path $SecretsDir "agent-config.json"
 $configHash = try { (Get-FileHash -Path $configPath -Algorithm SHA256 -ErrorAction Stop).Hash } catch { "" }
+
+# Porn blocklist (VPN-proof via the hosts file). Downloaded + refreshed daily by the agent.
+$hostsPath   = "$env:WINDIR\System32\drivers\etc\hosts"
+$pornCache   = Join-Path $SecretsDir "porn-blocklist.txt"
+$pornUrl     = if ($cfg.pornBlocklistUrl) { "$($cfg.pornBlocklistUrl)" } else { "" }   # "" = built-in curated top list
+$pornMax     = if ($cfg.pornBlocklistMaxDomains) { [int]$cfg.pornBlocklistMaxDomains } else { 20000 }  # hard cap so hosts stays fast
+$pornEnabled = -not ($cfg.pornBlocklistEnabled -eq $false)   # default ON unless config sets it false
+$expectedHostsHash = ""     # hash of the hosts file after our last write, for cheap tamper detection
+$desired = $null            # cached desired domain set (app-policy + porn); recomputed only on change
+$lastOverKey = ""; $lastPornMtime = $null
 
 # Supporter-mode streak state lives in the admin-only SecretsDir (SYSTEM-written) so the
 # protected user cannot fabricate a milestone message to their partner.
@@ -86,22 +96,39 @@ while ($true) {
         }
     }
     if ($overLimit.Count -gt 0) { $streak.Flagged = $true }   # a breach means today is not clean
-    # Apply the hosts block. If the file had to be rewritten even though the DESIRED set of
-    # domains did not change since last loop, that means the file was edited externally = tamper.
-    $desired = Get-DesiredHostsEntries -Policies $cfg.appPolicies -OverLimitApps $overLimit
-    $desiredKey = (@($desired) | Sort-Object) -join ','
-    $hostsChanged = Set-HostsBlock -Domains $desired
-    if ($hostsChanged -and -not $firstLoop -and $desiredKey -eq $lastDesiredKey) {
-        $streak.Flagged = $true
-        $k = "HostsTamper|$day"
-        if (-not $tamperAlerted[$k]) {
-            $al = Format-AlertEmail -Kind "HostsTamper" -Detail ""
-            Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
-            Write-AgentLog "Tamper: hosts block edited externally; restored + alerted."
-            $tamperAlerted[$k] = $true
+
+    # --- Hosts block: app-policy 'block' domains + the porn blocklist (VPN-proof) ---
+    # Refresh the porn list at most daily (cheap no-op when fresh). Rebuild the desired set only
+    # when the over-limit apps or the porn list actually change (avoids re-sorting tens of
+    # thousands of domains every poll). Tamper is caught by hashing the hosts file each loop
+    # against what we last wrote — a hosts edit with an unchanged desired set means an external edit.
+    Update-PornBlocklist -Url $pornUrl -CachePath $pornCache -MaxAgeHours 24 -MaxDomains $pornMax | Out-Null
+    $pornMtime = if (Test-Path $pornCache) { (Get-Item $pornCache).LastWriteTimeUtc } else { $null }
+    $overKey = (@($overLimit) | Sort-Object) -join ','
+    if (($null -eq $desired) -or ($overKey -ne $lastOverKey) -or ($pornMtime -ne $lastPornMtime)) {
+        $pornDomains = if ($pornEnabled) { Get-PornBlocklist -CachePath $pornCache } else { @() }
+        $appDomains  = Get-DesiredHostsEntries -Policies $cfg.appPolicies -OverLimitApps $overLimit
+        $desired = @(@($appDomains) + @($pornDomains) | Select-Object -Unique)
+        $lastOverKey = $overKey; $lastPornMtime = $pornMtime
+        $setChanged = $true
+    } else { $setChanged = $false }
+
+    $curHostsHash = if (Test-Path $hostsPath) { (Get-FileHash -Path $hostsPath -Algorithm SHA256).Hash } else { "" }
+    $tampered = (-not $firstLoop) -and (-not $setChanged) -and ($curHostsHash -ne $expectedHostsHash)
+    if ($firstLoop -or $setChanged -or $tampered) {
+        Set-HostsBlock -Domains $desired | Out-Null
+        $expectedHostsHash = if (Test-Path $hostsPath) { (Get-FileHash -Path $hostsPath -Algorithm SHA256).Hash } else { "" }
+        if ($tampered) {
+            $streak.Flagged = $true
+            $k = "HostsTamper|$day"
+            if (-not $tamperAlerted[$k]) {
+                $al = Format-AlertEmail -Kind "HostsTamper" -Detail ""
+                Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                Write-AgentLog "Tamper: hosts block edited externally; restored + alerted."
+                $tamperAlerted[$k] = $true
+            }
         }
     }
-    $lastDesiredKey = $desiredKey
 
     # --- Config-file tamper: alert if agent-config.json changed on disk ---
     $curHash = try { (Get-FileHash -Path $configPath -Algorithm SHA256 -ErrorAction Stop).Hash } catch { $configHash }

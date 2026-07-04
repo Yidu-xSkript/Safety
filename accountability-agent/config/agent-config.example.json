@@ -8,6 +8,9 @@
   "reportIntervalMinutes": 60,
   "heartbeatStaleSeconds": 180,
   "vpnPollSeconds": 5,
+  "pornBlocklistEnabled": true,
+  "pornBlocklistUrl": null,
+  "pornBlocklistMaxDomains": 20000,
   "appPolicies": [
     { "name": "Instagram", "policy": "block",       "domains": ["instagram.com", "cdninstagram.com"], "titleMatch": "Instagram", "dailyLimitMinutes": null },
     { "name": "TikTok",    "policy": "time-box",     "domains": ["tiktok.com"],                        "titleMatch": "TikTok",    "dailyLimitMinutes": 20 },
