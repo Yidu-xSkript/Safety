@@ -35,6 +35,9 @@ Describe "Format-AlertEmail" {
     It "labels a DNS fail-safe alert" {
         (Format-AlertEmail -Kind "DnsFailsafe" -Detail "").Subject | Should Match "NextDNS unreachable"
     }
+    It "labels an approved-VPN-active alert" {
+        (Format-AlertEmail -Kind "ApprovedVpnActive" -Detail "").Subject | Should Match "Approved VPN"
+    }
 }
 
 Describe "Format-SupporterEmail" {

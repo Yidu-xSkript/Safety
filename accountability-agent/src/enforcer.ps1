@@ -34,7 +34,7 @@ $dohFwEnabled = ($cfg.dohFirewallEnabled -eq $true)   # aggressive DNS firewall 
 $expectedHostsHash = ""     # hash of the hosts file after our last write, for cheap tamper detection
 $desired = $null            # cached desired domain set (app-policy + porn); recomputed only on change
 $safeRedirects = @{}        # cached SafeSearch host->IP redirects; recomputed with $desired
-$lastOverKey = ""; $lastPornMtime = $null
+$lastOverKey = ""; $lastPornMtime = $null; $lastVpnActive = $false
 
 # Supporter-mode streak state lives in the admin-only SecretsDir (SYSTEM-written) so the
 # protected user cannot fabricate a milestone message to their partner.
@@ -61,6 +61,7 @@ while ($true) {
 
     # --- VPN kill-switch (Option A: kill unapproved VPN, keep internet) ---
     $vpn = Get-VpnAdapterState
+    $vpnActive = Test-VpnActive -ApprovedVpnIps $cfg.approvedVpnIps   # robust "is any VPN up?" check
     if (Test-UnapprovedVpn -VpnAdapterPresent $vpn.Present `
             -ActiveRemoteIps (Get-ActiveRemoteIp) -ApprovedIps $cfg.approvedVpnIps) {
         Disable-VpnAdapter -Adapters $vpn.Adapters
@@ -68,6 +69,17 @@ while ($true) {
         Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $alert.Subject -Body $alert.Body
         Write-AgentLog "Unapproved VPN disabled: $($alert.Body)"
         $streak.Flagged = $true   # today is not a clean day
+    }
+    elseif ($vpnActive) {
+        # An approved/allowed VPN is up. NextDNS logging is blind during it, so notify the witness
+        # (once per day) that a VPN session is happening and to review the activity report.
+        $k = "ApprovedVpn|$day"
+        if (-not $tamperAlerted[$k]) {
+            $al = Format-AlertEmail -Kind "ApprovedVpnActive" -Detail ""
+            Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+            Write-AgentLog "Approved VPN active; witness notified."
+            $tamperAlerted[$k] = $true
+        }
     }
 
     # --- DNS lock (fail-safe + VPN-safe) ---
@@ -77,7 +89,7 @@ while ($true) {
     # the gentle Set-NextDnsLock (sets the DNS server; blocks nothing).
     if (-not $dohFwEnabled) { Remove-DohFirewallBlock }
 
-    if ($vpn.Present) {
+    if ($vpnActive) {
         # A VPN is up — it owns DNS/routing. Do NOT lock DNS or firewall-block; remove any block so
         # the VPN's own DNS works. Hosts-based blocking (porn/SafeSearch/apps) still applies.
         Remove-DohFirewallBlock
@@ -86,7 +98,7 @@ while ($true) {
         if ($dohFwEnabled) { Set-DohFirewallBlock -NextDnsIps $cfg.nextDnsIps }
         $dnsChanged = Set-NextDnsLock -NextDnsIps $cfg.nextDnsIps
         # A VPN legitimately changes DNS, so only treat a DNS change as tampering when NO VPN is up.
-        if ($dnsChanged -and -not $firstLoop -and -not $vpn.Present) {
+        if ($dnsChanged -and -not $firstLoop -and -not $vpnActive) {
             $streak.Flagged = $true
             $k = "DnsTamper|$day"
             if (-not $tamperAlerted[$k]) {
@@ -136,12 +148,15 @@ while ($true) {
     Update-PornBlocklist -Url $pornUrl -CachePath $pornCache -MaxAgeHours 24 -MaxDomains $pornMax | Out-Null
     $pornMtime = if (Test-Path $pornCache) { (Get-Item $pornCache).LastWriteTimeUtc } else { $null }
     $overKey = (@($overLimit) | Sort-Object) -join ','
-    if (($null -eq $desired) -or ($overKey -ne $lastOverKey) -or ($pornMtime -ne $lastPornMtime)) {
-        $pornDomains = if ($pornEnabled) { Get-PornBlocklist -CachePath $pornCache } else { @() }
+    if (($null -eq $desired) -or ($overKey -ne $lastOverKey) -or ($pornMtime -ne $lastPornMtime) -or ($vpnActive -ne $lastVpnActive)) {
+        # Porn is hosts-blocked ONLY while a VPN is up (NextDNS is blind then). With no VPN we leave
+        # porn to NextDNS, so the ATTEMPT is logged and visible to the witness instead of being
+        # silently dropped by the hosts file before any query reaches NextDNS.
+        $pornDomains = if ($pornEnabled -and $vpnActive) { Get-PornBlocklist -CachePath $pornCache } else { @() }
         $appDomains  = Get-DesiredHostsEntries -Policies $cfg.appPolicies -OverLimitApps $overLimit
         $desired = @(@($appDomains) + @($pornDomains) | Select-Object -Unique)
         $safeRedirects = if ($safeSearchEnabled) { Get-SafeSearchRedirects } else { @{} }
-        $lastOverKey = $overKey; $lastPornMtime = $pornMtime
+        $lastOverKey = $overKey; $lastPornMtime = $pornMtime; $lastVpnActive = $vpnActive
         $setChanged = $true
     } else { $setChanged = $false }
 
