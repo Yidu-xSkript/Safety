@@ -2,15 +2,21 @@ function Set-NextDnsLock {
     # Re-apply NextDNS on every active NON-VPN interface if it has drifted.
     # VPN adapters (incl. the approved work VPN) are left untouched so we never
     # break the tunnel's own name resolution.
+    # Returns $true if any adapter's DNS had to be corrected (i.e. it had drifted) — the
+    # caller treats a post-startup correction as tampering.
     param([Parameter(Mandatory)][string[]]$NextDnsIps)
     $vpnPattern = 'VPN|TAP|TUN|WireGuard|Wintun|OpenVPN|WAN Miniport \((IKEv2|L2TP|PPTP|SSTP|Network Monitor)\)'
-    Get-NetAdapter -ErrorAction SilentlyContinue |
-        Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -notmatch $vpnPattern } | ForEach-Object {
-        $cur = (Get-DnsClientServerAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses
+    $changed = $false
+    $adapters = Get-NetAdapter -ErrorAction SilentlyContinue |
+        Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -notmatch $vpnPattern }
+    foreach ($a in $adapters) {
+        $cur = (Get-DnsClientServerAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses
         if (($cur -join ',') -ne ($NextDnsIps -join ',')) {
-            Set-DnsClientServerAddress -InterfaceIndex $_.ifIndex -ServerAddresses $NextDnsIps -ErrorAction SilentlyContinue
+            Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ServerAddresses $NextDnsIps -ErrorAction SilentlyContinue
+            $changed = $true
         }
     }
+    return $changed
 }
 
 function Set-DohFirewallBlock {
@@ -56,7 +62,9 @@ function Set-HostsBlock {
     $new = @($kept + $block)
     if (($new -join "`n") -ne ($content -join "`n")) {
         Set-Content -Path $HostsPath -Value $new -Encoding ASCII
+        return $true    # file was out of sync and had to be rewritten
     }
+    return $false
 }
 
 Export-ModuleMember -Function Set-NextDnsLock, Set-DohFirewallBlock, Disable-VpnAdapter, Set-HostsBlock

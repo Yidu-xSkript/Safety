@@ -59,7 +59,7 @@ Identical on both users' PCs. Runs as a **SYSTEM service / scheduled task** a st
    - Per-user config: User B registers their own approved endpoints (if any) the same way.
    - **Tor Browser** routes around DNS entirely (like a VPN), so it is handled by this same path — detected, killed, and reported — not by the DNS layer.
    - **DoH / browser "secure DNS"** would let a browser dodge NextDNS; neutralized by a firewall rule blocking known DoH resolver servers (see enforcement hardening).
-3. **Tamper alert:** service stopped/disabled/config-altered → notify Witness.
+3. **Tamper alert:** the agent emails the Witness whenever it detects and corrects a bypass attempt — **hosts block edited**, **DNS changed away from NextDNS**, or **agent-config.json altered** — each once per day. Combined with the dead-man's switch (service stopped/monitor silenced), this makes every bypass *seen* even on a machine where the protected user keeps admin. The agent runs on its **in-memory config**, so editing the config file on disk can't redirect or silence the alert — it only triggers one.
 4. **Dead-man's switch:** Witness warned if a scheduled report fails to arrive on time.
 5. **Supporter update (optional):** streak/milestone-only summary, stripped of raw data.
 

@@ -23,6 +23,15 @@ Describe "Format-AlertEmail" {
     It "labels a time-box alert" {
         (Format-AlertEmail -Kind "TimeBox" -Detail "TikTok").Subject | Should Match "Time-box"
     }
+    It "labels a hosts-tamper alert" {
+        (Format-AlertEmail -Kind "HostsTamper" -Detail "").Subject | Should Match "block list"
+    }
+    It "labels a DNS-tamper alert" {
+        (Format-AlertEmail -Kind "DnsTamper" -Detail "").Subject | Should Match "DNS"
+    }
+    It "labels a config-tamper alert" {
+        (Format-AlertEmail -Kind "ConfigTamper" -Detail "").Subject | Should Match "config"
+    }
 }
 
 Describe "Format-SupporterEmail" {

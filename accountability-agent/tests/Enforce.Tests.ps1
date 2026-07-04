@@ -24,6 +24,14 @@ Describe "Set-HostsBlock" {
         ($c -contains "127.0.0.1 reddit.com") | Should Be $false
         ($c -contains "127.0.0.1 localhost")  | Should Be $true
     }
+    It "returns true when it changes the file and false when already in sync" {
+        "127.0.0.1 localhost" | Set-Content -Path $tmp -Encoding ASCII
+        (Set-HostsBlock -Domains @("a.com") -HostsPath $tmp) | Should Be $true   # first write
+        (Set-HostsBlock -Domains @("a.com") -HostsPath $tmp) | Should Be $false  # idempotent, no change
+        # Simulate external tampering: strip the block, then it must rewrite (return true).
+        "127.0.0.1 localhost" | Set-Content -Path $tmp -Encoding ASCII
+        (Set-HostsBlock -Domains @("a.com") -HostsPath $tmp) | Should Be $true
+    }
     It "does not swallow the file when a BEGIN marker has no matching END" {
         @("127.0.0.1 localhost", "# BEGIN AccountabilityAgent", "127.0.0.1 orphan.com", "10.0.0.1 keepme") |
             Set-Content -Path $tmp -Encoding ASCII

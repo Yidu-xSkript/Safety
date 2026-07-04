@@ -15,6 +15,11 @@ $heartbeat = Join-Path $RuntimeDir "monitor.heartbeat"
 $lastReport = Get-Date
 $tamperNotified = $false
 $timeBoxAlerted = @{}   # "app|yyyyMMdd" -> $true, so each over-limit app alerts the witness once per day
+$tamperAlerted  = @{}   # "kind|yyyyMMdd" -> $true, so each tamper kind alerts the witness once per day
+$firstLoop      = $true # suppress alerts on the initial DNS/hosts application (that's setup, not tampering)
+$lastDesiredKey = ""    # last desired hosts-domain set, to tell agent-driven changes from external edits
+$configPath = Join-Path $SecretsDir "agent-config.json"
+$configHash = try { (Get-FileHash -Path $configPath -Algorithm SHA256 -ErrorAction Stop).Hash } catch { "" }
 
 # Supporter-mode streak state lives in the admin-only SecretsDir (SYSTEM-written) so the
 # protected user cannot fabricate a milestone message to their partner.
@@ -49,8 +54,18 @@ while ($true) {
         $streak.Flagged = $true   # today is not a clean day
     }
 
-    # --- DNS re-lock (non-VPN adapters only) ---
-    Set-NextDnsLock -NextDnsIps $cfg.nextDnsIps
+    # --- DNS re-lock (non-VPN adapters only) + tamper alert ---
+    $dnsChanged = Set-NextDnsLock -NextDnsIps $cfg.nextDnsIps
+    if ($dnsChanged -and -not $firstLoop) {
+        $streak.Flagged = $true
+        $k = "DnsTamper|$day"
+        if (-not $tamperAlerted[$k]) {
+            $al = Format-AlertEmail -Kind "DnsTamper" -Detail ""
+            Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+            Write-AgentLog "Tamper: DNS changed away from NextDNS; restored + alerted."
+            $tamperAlerted[$k] = $true
+        }
+    }
 
     # --- App policy: hosts-block 'block' apps + over-limit time-box apps ---
     $overLimit = @()
@@ -71,7 +86,36 @@ while ($true) {
         }
     }
     if ($overLimit.Count -gt 0) { $streak.Flagged = $true }   # a breach means today is not clean
-    Set-HostsBlock -Domains (Get-DesiredHostsEntries -Policies $cfg.appPolicies -OverLimitApps $overLimit)
+    # Apply the hosts block. If the file had to be rewritten even though the DESIRED set of
+    # domains did not change since last loop, that means the file was edited externally = tamper.
+    $desired = Get-DesiredHostsEntries -Policies $cfg.appPolicies -OverLimitApps $overLimit
+    $desiredKey = (@($desired) | Sort-Object) -join ','
+    $hostsChanged = Set-HostsBlock -Domains $desired
+    if ($hostsChanged -and -not $firstLoop -and $desiredKey -eq $lastDesiredKey) {
+        $streak.Flagged = $true
+        $k = "HostsTamper|$day"
+        if (-not $tamperAlerted[$k]) {
+            $al = Format-AlertEmail -Kind "HostsTamper" -Detail ""
+            Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+            Write-AgentLog "Tamper: hosts block edited externally; restored + alerted."
+            $tamperAlerted[$k] = $true
+        }
+    }
+    $lastDesiredKey = $desiredKey
+
+    # --- Config-file tamper: alert if agent-config.json changed on disk ---
+    $curHash = try { (Get-FileHash -Path $configPath -Algorithm SHA256 -ErrorAction Stop).Hash } catch { $configHash }
+    if ($configHash -and $curHash -ne $configHash) {
+        $streak.Flagged = $true
+        $k = "ConfigTamper|$day"
+        if (-not $tamperAlerted[$k]) {
+            $al = Format-AlertEmail -Kind "ConfigTamper" -Detail ""
+            Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+            Write-AgentLog "Tamper: agent-config.json altered + alerted."
+            $tamperAlerted[$k] = $true
+        }
+        $configHash = $curHash
+    }
 
     # --- Supporter mode: milestone encouragement to the partner (opt-in via supporterEmail) ---
     $due = Get-DueMilestone -StreakDays $streak.StreakDays -Milestones $milestones -LastNotified $streak.LastNotified
@@ -116,6 +160,8 @@ while ($true) {
         & "$PSScriptRoot/reporter.ps1" -SecretsDir $SecretsDir -RuntimeDir $RuntimeDir
         $lastReport = Get-Date
     }
+
+    $firstLoop = $false   # initial DNS/hosts application done; further corrections count as tampering
   } catch {
     Write-AgentLog "Enforcer loop error: $($_.Exception.Message)"
   }
