@@ -31,6 +31,7 @@ $pornMax     = if ($cfg.pornBlocklistMaxDomains) { [int]$cfg.pornBlocklistMaxDom
 $pornEnabled = -not ($cfg.pornBlocklistEnabled -eq $false)   # default ON unless config sets it false
 $safeSearchEnabled = -not ($cfg.safeSearchEnabled -eq $false)   # force SafeSearch (Google/Bing/DDG); default ON
 $dohFwEnabled = ($cfg.dohFirewallEnabled -eq $true)   # aggressive DNS firewall block; OFF by default (can break VPNs)
+$dnsMgmtEnabled = -not ($cfg.dnsManagementEnabled -eq $false)   # let the agent manage OS DNS; set false when the NextDNS app (DoH) handles DNS
 $expectedHostsHash = ""     # hash of the hosts file after our last write, for cheap tamper detection
 $desired = $null            # cached desired domain set (app-policy + porn); recomputed only on change
 $safeRedirects = @{}        # cached SafeSearch host->IP redirects; recomputed with $desired
@@ -82,11 +83,14 @@ while ($true) {
         }
     }
 
-    # --- DNS lock (fail-safe + VPN-safe) ---
+    # --- DNS lock (fail-safe + VPN-safe). SKIPPED entirely when the NextDNS app / another tool
+    # already handles DNS (config: dnsManagementEnabled=false) — the agent must not fight it,
+    # which otherwise causes reachable/unreachable flapping and failsafe-alert spam. ---
+    if (-not $dnsMgmtEnabled) {
+      Remove-DohFirewallBlock   # just make sure no stale AA firewall rules linger
+    } else {
     # The DoH FIREWALL block (blocking all DNS except NextDNS) can strangle a VPN's own DNS and has
     # broken connectivity in practice, so it is OPT-IN (config: dohFirewallEnabled, default off).
-    # When it's off we make sure no stale AA firewall rules linger. DNS enforcement then uses only
-    # the gentle Set-NextDnsLock (sets the DNS server; blocks nothing).
     if (-not $dohFwEnabled) { Remove-DohFirewallBlock }
 
     if ($vpnActive) {
@@ -119,6 +123,7 @@ while ($true) {
             $failsafeTripped = $true
         }
     }
+    }  # end: dnsMgmtEnabled
 
     # --- App policy: hosts-block 'block' apps + over-limit time-box apps ---
     $overLimit = @()

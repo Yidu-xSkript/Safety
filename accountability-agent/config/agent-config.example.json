@@ -13,6 +13,7 @@
   "pornBlocklistMaxDomains": 20000,
   "safeSearchEnabled": true,
   "dohFirewallEnabled": false,
+  "dnsManagementEnabled": false,
   "appPolicies": [
     { "name": "Instagram", "policy": "block",       "domains": ["instagram.com", "cdninstagram.com"], "titleMatch": "Instagram", "dailyLimitMinutes": null },
     { "name": "TikTok",    "policy": "time-box",     "domains": ["tiktok.com"],                        "titleMatch": "TikTok",    "dailyLimitMinutes": 20 },
