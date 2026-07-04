@@ -53,6 +53,24 @@ Describe "Get-BuiltInPornDomains" {
     }
 }
 
+Describe "Get-SafeSearchTargets" {
+    It "covers Google, Bing and DuckDuckGo" {
+        $t = Get-SafeSearchTargets
+        ($t.ContainsKey('forcesafesearch.google.com')) | Should Be $true
+        ($t.ContainsKey('strict.bing.com'))            | Should Be $true
+        ($t.ContainsKey('safe.duckduckgo.com'))        | Should Be $true
+    }
+    It "excludes YouTube entirely" {
+        $t = Get-SafeSearchTargets
+        ($t.Keys -match 'youtube').Count | Should Be 0
+        $allDomains = $t.Values | ForEach-Object { $_ }
+        ($allDomains -match 'youtube').Count | Should Be 0
+    }
+    It "redirects the bare and www google domains" {
+        (Get-SafeSearchTargets)['forcesafesearch.google.com'] -contains 'www.google.com' | Should Be $true
+    }
+}
+
 Describe "Get-PornBlocklist" {
     It "returns an empty array when no cache exists" {
         (Get-PornBlocklist -CachePath (Join-Path $env:TEMP "no-such-porn-cache.txt")).Count | Should Be 0

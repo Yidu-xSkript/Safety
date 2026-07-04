@@ -27,8 +27,10 @@ $pornCache   = Join-Path $SecretsDir "porn-blocklist.txt"
 $pornUrl     = if ($cfg.pornBlocklistUrl) { "$($cfg.pornBlocklistUrl)" } else { "" }   # "" = built-in curated top list
 $pornMax     = if ($cfg.pornBlocklistMaxDomains) { [int]$cfg.pornBlocklistMaxDomains } else { 20000 }  # hard cap so hosts stays fast
 $pornEnabled = -not ($cfg.pornBlocklistEnabled -eq $false)   # default ON unless config sets it false
+$safeSearchEnabled = -not ($cfg.safeSearchEnabled -eq $false)   # force SafeSearch (Google/Bing/DDG); default ON
 $expectedHostsHash = ""     # hash of the hosts file after our last write, for cheap tamper detection
 $desired = $null            # cached desired domain set (app-policy + porn); recomputed only on change
+$safeRedirects = @{}        # cached SafeSearch host->IP redirects; recomputed with $desired
 $lastOverKey = ""; $lastPornMtime = $null
 
 # Supporter-mode streak state lives in the admin-only SecretsDir (SYSTEM-written) so the
@@ -109,6 +111,7 @@ while ($true) {
         $pornDomains = if ($pornEnabled) { Get-PornBlocklist -CachePath $pornCache } else { @() }
         $appDomains  = Get-DesiredHostsEntries -Policies $cfg.appPolicies -OverLimitApps $overLimit
         $desired = @(@($appDomains) + @($pornDomains) | Select-Object -Unique)
+        $safeRedirects = if ($safeSearchEnabled) { Get-SafeSearchRedirects } else { @{} }
         $lastOverKey = $overKey; $lastPornMtime = $pornMtime
         $setChanged = $true
     } else { $setChanged = $false }
@@ -116,7 +119,7 @@ while ($true) {
     $curHostsHash = if (Test-Path $hostsPath) { (Get-FileHash -Path $hostsPath -Algorithm SHA256).Hash } else { "" }
     $tampered = (-not $firstLoop) -and (-not $setChanged) -and ($curHostsHash -ne $expectedHostsHash)
     if ($firstLoop -or $setChanged -or $tampered) {
-        Set-HostsBlock -Domains $desired | Out-Null
+        Set-HostsBlock -Domains $desired -Redirects $safeRedirects | Out-Null
         $expectedHostsHash = if (Test-Path $hostsPath) { (Get-FileHash -Path $hostsPath -Algorithm SHA256).Hash } else { "" }
         if ($tampered) {
             $streak.Flagged = $true

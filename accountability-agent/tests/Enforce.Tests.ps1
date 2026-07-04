@@ -32,6 +32,20 @@ Describe "Set-HostsBlock" {
         "127.0.0.1 localhost" | Set-Content -Path $tmp -Encoding ASCII
         (Set-HostsBlock -Domains @("a.com") -HostsPath $tmp) | Should Be $true
     }
+    It "writes SafeSearch redirect entries as '<ip> <domain>'" {
+        "127.0.0.1 localhost" | Set-Content -Path $tmp -Encoding ASCII
+        Set-HostsBlock -Domains @("porn.com") -Redirects @{ "www.google.com" = "216.239.38.120" } -HostsPath $tmp
+        $c = Get-Content $tmp
+        ($c -contains "127.0.0.1 porn.com")            | Should Be $true
+        ($c -contains "216.239.38.120 www.google.com") | Should Be $true
+    }
+    It "produces deterministic output for the same redirects (stable for hash checks)" {
+        "127.0.0.1 localhost" | Set-Content -Path $tmp -Encoding ASCII
+        Set-HostsBlock -Domains @("a.com") -Redirects @{ "www.bing.com"="1.1.1.1"; "www.google.com"="2.2.2.2" } -HostsPath $tmp
+        $first = (Get-Content $tmp) -join "`n"
+        (Set-HostsBlock -Domains @("a.com") -Redirects @{ "www.bing.com"="1.1.1.1"; "www.google.com"="2.2.2.2" } -HostsPath $tmp) | Should Be $false
+        ((Get-Content $tmp) -join "`n") | Should Be $first
+    }
     It "does not swallow the file when a BEGIN marker has no matching END" {
         @("127.0.0.1 localhost", "# BEGIN AccountabilityAgent", "127.0.0.1 orphan.com", "10.0.0.1 keepme") |
             Set-Content -Path $tmp -Encoding ASCII

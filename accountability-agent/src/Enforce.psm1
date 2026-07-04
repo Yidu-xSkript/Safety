@@ -45,8 +45,16 @@ function Disable-VpnAdapter {
 
 function Set-HostsBlock {
     # Idempotently maintain a managed block section in the hosts file.
+    # $Domains   -> "127.0.0.1 <domain>" block entries.
+    # $Redirects -> hashtable of <domain> = <ip>, written as "<ip> <domain>" (e.g. SafeSearch
+    #               redirects that point a search hostname at its force-safe IP). Sorted by domain
+    #               so the output is deterministic (stable for the hash-based tamper check).
     # Rewrites the file only when content actually changes (avoids ~per-poll churn/races).
-    param([string[]]$Domains = @(), [string]$HostsPath = "$env:WINDIR\System32\drivers\etc\hosts")
+    param(
+        [string[]]$Domains = @(),
+        [hashtable]$Redirects = @{},
+        [string]$HostsPath = "$env:WINDIR\System32\drivers\etc\hosts"
+    )
     $begin = "# BEGIN AccountabilityAgent"; $end = "# END AccountabilityAgent"
     $content = if (Test-Path $HostsPath) { @(Get-Content $HostsPath) } else { @() }
     # Strip a previous managed block. If a BEGIN has no matching END (corruption/partial
@@ -58,7 +66,8 @@ function Set-HostsBlock {
         if ($line -eq $end)   { $inBlock = $false; continue }
         if (-not $inBlock)    { $kept += $line }
     }
-    $block = @($begin) + ($Domains | ForEach-Object { "127.0.0.1 $_" }) + @($end)
+    $redirectLines = @($Redirects.Keys | Sort-Object | ForEach-Object { "$($Redirects[$_]) $_" })
+    $block = @($begin) + ($Domains | ForEach-Object { "127.0.0.1 $_" }) + $redirectLines + @($end)
     $new = @($kept + $block)
     if (($new -join "`n") -ne ($content -join "`n")) {
         Set-Content -Path $HostsPath -Value $new -Encoding ASCII

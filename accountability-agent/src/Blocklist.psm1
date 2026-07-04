@@ -80,4 +80,30 @@ function Get-PornBlocklist {
     return @()
 }
 
-Export-ModuleMember -Function ConvertFrom-HostsList, Update-PornBlocklist, Get-PornBlocklist, Get-BuiltInPornDomains
+function Get-SafeSearchTargets {
+    # Pure: force-safe hostname -> the search domains that should redirect to it.
+    # YouTube is intentionally EXCLUDED (per user: keep YouTube usable).
+    return @{
+        'forcesafesearch.google.com' = @('www.google.com', 'google.com')
+        'strict.bing.com'            = @('www.bing.com', 'bing.com')
+        'safe.duckduckgo.com'        = @('duckduckgo.com', 'www.duckduckgo.com')
+    }
+}
+
+function Get-SafeSearchRedirects {
+    # Resolve each force-safe hostname to its current IP and map the search domains to it.
+    # Returns @{ <searchDomain> = <ip> }. Search domains whose force-safe host can't be resolved
+    # are simply omitted (fail-open on that one engine rather than breaking search entirely).
+    $map = @{}
+    $targets = Get-SafeSearchTargets
+    foreach ($fs in $targets.Keys) {
+        $ip = try {
+            (Resolve-DnsName -Name $fs -Type A -ErrorAction Stop |
+                Where-Object { $_.IPAddress } | Select-Object -First 1).IPAddress
+        } catch { $null }
+        if ($ip) { foreach ($d in $targets[$fs]) { $map[$d] = $ip } }
+    }
+    return $map
+}
+
+Export-ModuleMember -Function ConvertFrom-HostsList, Update-PornBlocklist, Get-PornBlocklist, Get-BuiltInPornDomains, Get-SafeSearchTargets, Get-SafeSearchRedirects
