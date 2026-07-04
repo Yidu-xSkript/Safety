@@ -44,7 +44,7 @@ icacls $installSrc /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(O
 $enfAction  = New-ScheduledTaskAction -Execute "powershell.exe" `
     -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$installSrc\enforcer.ps1`" -SecretsDir `"$SecretsDir`" -RuntimeDir `"$RuntimeDir`""
 $enfTrigger = New-ScheduledTaskTrigger -AtStartup
-$enfSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
+$enfSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
 Register-ScheduledTask -TaskName "AccountabilityEnforcer" -Action $enfAction -Trigger $enfTrigger `
     -Settings $enfSet -User "SYSTEM" -RunLevel Highest -Force
 
@@ -52,7 +52,7 @@ Register-ScheduledTask -TaskName "AccountabilityEnforcer" -Action $enfAction -Tr
 $monAction  = New-ScheduledTaskAction -Execute "powershell.exe" `
     -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$installSrc\monitor.ps1`" -RuntimeDir `"$RuntimeDir`""
 $monTrigger = New-ScheduledTaskTrigger -AtLogOn
-$monSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
+$monSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
 Register-ScheduledTask -TaskName "AccountabilityMonitor" -Action $monAction -Trigger $monTrigger `
     -Settings $monSet -RunLevel Limited -Force
 

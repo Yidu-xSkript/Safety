@@ -14,6 +14,7 @@ Import-Module "$PSScriptRoot/Blocklist.psm1" -Force
 $cfg       = Get-AgentConfig -Path (Join-Path $SecretsDir "agent-config.json")
 $heartbeat = Join-Path $RuntimeDir "monitor.heartbeat"
 $lastReport = Get-Date
+$startTime  = Get-Date   # for the dead-man startup grace
 $tamperNotified = $false
 $timeBoxAlerted = @{}   # "app|yyyyMMdd" -> $true, so each over-limit app alerts the witness once per day
 $tamperAlerted  = @{}   # "kind|yyyyMMdd" -> $true, so each tamper kind alerts the witness once per day
@@ -75,7 +76,8 @@ while ($true) {
         if ($failsafeTripped) { Write-AgentLog "NextDNS reachable again; re-arming DNS lock."; $failsafeTripped = $false }
         Set-DohFirewallBlock -NextDnsIps $cfg.nextDnsIps
         $dnsChanged = Set-NextDnsLock -NextDnsIps $cfg.nextDnsIps
-        if ($dnsChanged -and -not $firstLoop) {
+        # A VPN legitimately changes DNS, so only treat a DNS change as tampering when NO VPN is up.
+        if ($dnsChanged -and -not $firstLoop -and -not $vpn.Present) {
             $streak.Flagged = $true
             $k = "DnsTamper|$day"
             if (-not $tamperAlerted[$k]) {
@@ -194,7 +196,10 @@ while ($true) {
             catch { $lastBeat = $null }
         }
     }
-    if (Test-HeartbeatStale -LastBeat $lastBeat -Now (Get-Date) -ThresholdSeconds ([int]$cfg.heartbeatStaleSeconds)) {
+    # Startup grace: don't fire the dead-man until the enforcer has run longer than the stale
+    # window, so a monitor that is still coming up after boot/login doesn't false-alarm.
+    $pastStartupGrace = ((Get-Date) - $startTime).TotalSeconds -gt [int]$cfg.heartbeatStaleSeconds
+    if ($pastStartupGrace -and (Test-HeartbeatStale -LastBeat $lastBeat -Now (Get-Date) -ThresholdSeconds ([int]$cfg.heartbeatStaleSeconds))) {
         if (-not $tamperNotified) {
             $alert = Format-AlertEmail -Kind "Tamper" -Detail "monitor heartbeat stale > $($cfg.heartbeatStaleSeconds)s"
             Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $alert.Subject -Body $alert.Body
