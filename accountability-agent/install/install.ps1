@@ -48,4 +48,9 @@ $monSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (N
 Register-ScheduledTask -TaskName "AccountabilityMonitor" -Action $monAction -Trigger $monTrigger `
     -Settings $monSet -RunLevel Limited -Force
 
-Write-Host "Installed. Start now with: Start-ScheduledTask -TaskName AccountabilityEnforcer; Start-ScheduledTask -TaskName AccountabilityMonitor"
+# Start both now so protection is active immediately (don't wait for a reboot/logon).
+Start-ScheduledTask -TaskName "AccountabilityEnforcer" -ErrorAction SilentlyContinue
+Start-ScheduledTask -TaskName "AccountabilityMonitor"  -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+Write-Host "Installed and started. Current state:"
+Get-ScheduledTask -TaskName Accountability* | Select-Object TaskName, State | Format-Table -AutoSize
