@@ -3,13 +3,21 @@ param(
     [string]$SrcDir     = "$PSScriptRoot/../src",
     [string]$SecretsDir = "C:\ProgramData\AccountabilityAgent",
     [string]$RuntimeDir = "C:\ProgramData\AccountabilityAgentRuntime",
-    [Parameter(Mandatory)][string]$ConfigPath   # path to the filled-in agent-config.json
+    [Parameter(Mandatory)][string]$ConfigPath,  # path to the filled-in agent-config.json
+    [string]$UninstallPassword                  # optional: witness sets this to gate uninstall.ps1
 )
 
 # --- Secrets dir: admin-only. Holds the config with the SMTP app password. ---
 New-Item -ItemType Directory -Path $SecretsDir -Force | Out-Null
 Copy-Item $ConfigPath (Join-Path $SecretsDir "agent-config.json") -Force
 icacls $SecretsDir /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" | Out-Null
+
+# --- Optional uninstall password (witness-set). Stored as a salted hash in the admin-only dir. ---
+if ($UninstallPassword) {
+    Import-Module "$SrcDir/Common.psm1" -Force
+    New-PasswordHash -Password $UninstallPassword | Set-Content -Path (Join-Path $SecretsDir "uninstall.hash") -Encoding ASCII
+    Write-Host "Uninstall password set - uninstall.ps1 will require it."
+}
 
 # --- Runtime dir: the standard-user monitor must read/write here. NO secrets live here. ---
 New-Item -ItemType Directory -Path $RuntimeDir -Force | Out-Null

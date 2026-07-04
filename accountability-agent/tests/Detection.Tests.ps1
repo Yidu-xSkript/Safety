@@ -13,6 +13,25 @@ Describe "Get-AgentConfig" {
     }
 }
 
+Describe "Password hashing (uninstall password)" {
+    It "verifies a correct password" {
+        $s = New-PasswordHash -Password "hunter2" -Salt "abc"
+        Test-PasswordHash -Password "hunter2" -Stored $s | Should Be $true
+    }
+    It "rejects a wrong password" {
+        $s = New-PasswordHash -Password "hunter2" -Salt "abc"
+        Test-PasswordHash -Password "nope" -Stored $s | Should Be $false
+    }
+    It "never stores the raw password and uses salt:hash form" {
+        $s = New-PasswordHash -Password "hunter2" -Salt "abc"
+        $s.Contains("hunter2") | Should Be $false
+        ($s -split ':').Count | Should Be 2
+    }
+    It "rejects a malformed stored hash" {
+        Test-PasswordHash -Password "x" -Stored "not-a-valid-hash" | Should Be $false
+    }
+}
+
 Describe "Test-UnapprovedVpn" {
     $approved = @("181.214.9.54")
 

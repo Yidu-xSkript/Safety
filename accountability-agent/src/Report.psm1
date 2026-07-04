@@ -13,6 +13,7 @@ function Format-AlertEmail {
         "HostsTamper"   { return @{ Subject = "[Accountability] Tamper: block list edited"; Body = "The hosts block file was modified externally and has been restored. $Detail" } }
         "DnsTamper"     { return @{ Subject = "[Accountability] Tamper: DNS changed"; Body = "DNS was changed away from NextDNS and has been restored. $Detail" } }
         "ConfigTamper"  { return @{ Subject = "[Accountability] Tamper: config altered"; Body = "The agent configuration file was modified. The agent keeps running on its original settings. $Detail" } }
+        "UninstallAttempt" { return @{ Subject = "[Accountability] Uninstall attempt (wrong password)"; Body = "Someone ran the uninstaller with the wrong password. Uninstall was refused. $Detail" } }
         "TimeBox"       { return @{ Subject = "[Accountability] Time-box limit reached: $Detail"; Body = "Daily time limit exceeded for: $Detail. The app is now blocked for the rest of the day." } }
         default         { return @{ Subject = "[Accountability] Alert: $Kind"; Body = $Detail } }
     }
