@@ -12,7 +12,15 @@ New-Item -ItemType Directory -Path $SecretsDir -Force | Out-Null
 Copy-Item $ConfigPath (Join-Path $SecretsDir "agent-config.json") -Force
 icacls $SecretsDir /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" | Out-Null
 
-# --- Optional uninstall password (witness-set). Stored as a salted hash in the admin-only dir. ---
+# --- Optional uninstall password (witness-set). Prompted securely if not passed on the command
+# --- line, so it never lands in PowerShell history. Stored as a salted hash in the admin-only dir.
+if (-not $UninstallPassword) {
+    $sec = Read-Host "Set an uninstall password (leave blank to skip)" -AsSecureString
+    if ($sec.Length -gt 0) {
+        $UninstallPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
+    }
+}
 if ($UninstallPassword) {
     Import-Module "$SrcDir/Common.psm1" -Force
     New-PasswordHash -Password $UninstallPassword | Set-Content -Path (Join-Path $SecretsDir "uninstall.hash") -Encoding ASCII
