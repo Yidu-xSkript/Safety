@@ -30,6 +30,7 @@ $pornUrl     = if ($cfg.pornBlocklistUrl) { "$($cfg.pornBlocklistUrl)" } else { 
 $pornMax     = if ($cfg.pornBlocklistMaxDomains) { [int]$cfg.pornBlocklistMaxDomains } else { 20000 }  # hard cap so hosts stays fast
 $pornEnabled = -not ($cfg.pornBlocklistEnabled -eq $false)   # default ON unless config sets it false
 $safeSearchEnabled = -not ($cfg.safeSearchEnabled -eq $false)   # force SafeSearch (Google/Bing/DDG); default ON
+$dohFwEnabled = ($cfg.dohFirewallEnabled -eq $true)   # aggressive DNS firewall block; OFF by default (can break VPNs)
 $expectedHostsHash = ""     # hash of the hosts file after our last write, for cheap tamper detection
 $desired = $null            # cached desired domain set (app-policy + porn); recomputed only on change
 $safeRedirects = @{}        # cached SafeSearch host->IP redirects; recomputed with $desired
@@ -69,12 +70,20 @@ while ($true) {
         $streak.Flagged = $true   # today is not a clean day
     }
 
-    # --- DNS lock (fail-safe): only lock DNS to NextDNS when NextDNS actually resolves. ---
-    # If NextDNS is unreachable (wrong IPs, Linked-IP not set, VPN, outage), back off: remove the
-    # DNS firewall block and reset DNS to automatic so the machine NEVER loses connectivity.
-    if (Test-NextDnsReachable -NextDnsIps $cfg.nextDnsIps) {
+    # --- DNS lock (fail-safe + VPN-safe) ---
+    # The DoH FIREWALL block (blocking all DNS except NextDNS) can strangle a VPN's own DNS and has
+    # broken connectivity in practice, so it is OPT-IN (config: dohFirewallEnabled, default off).
+    # When it's off we make sure no stale AA firewall rules linger. DNS enforcement then uses only
+    # the gentle Set-NextDnsLock (sets the DNS server; blocks nothing).
+    if (-not $dohFwEnabled) { Remove-DohFirewallBlock }
+
+    if ($vpn.Present) {
+        # A VPN is up — it owns DNS/routing. Do NOT lock DNS or firewall-block; remove any block so
+        # the VPN's own DNS works. Hosts-based blocking (porn/SafeSearch/apps) still applies.
+        Remove-DohFirewallBlock
+    } elseif (Test-NextDnsReachable -NextDnsIps $cfg.nextDnsIps) {
         if ($failsafeTripped) { Write-AgentLog "NextDNS reachable again; re-arming DNS lock."; $failsafeTripped = $false }
-        Set-DohFirewallBlock -NextDnsIps $cfg.nextDnsIps
+        if ($dohFwEnabled) { Set-DohFirewallBlock -NextDnsIps $cfg.nextDnsIps }
         $dnsChanged = Set-NextDnsLock -NextDnsIps $cfg.nextDnsIps
         # A VPN legitimately changes DNS, so only treat a DNS change as tampering when NO VPN is up.
         if ($dnsChanged -and -not $firstLoop -and -not $vpn.Present) {
