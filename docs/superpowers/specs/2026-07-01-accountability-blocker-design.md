@@ -32,6 +32,8 @@ Devices: **Windows PC + Android.** Same standard-user rule. User A holds B's sec
 ### 2.4 Supporter (Partner mode) — optional, either user
 A romantic partner may optionally be added as a **Supporter**: encouragement-only. Receives streaks, milestones, "clean week" confirmations. **Never** raw URLs, history, window titles, or relapse details. Keeps a partner included and encouraged without deputizing them as an enforcer or re-injuring them with raw data. Off unless explicitly enabled.
 
+**Implemented (v1):** milestone emails to `supporterEmail` at `supporterMilestones` (default 7/30/90 days). A **clean day** = a day with no unapproved-VPN kill and no time-box breach (the agent-visible signals); the streak resets on a flagged day. Streak state lives in the **admin-only secrets dir** (SYSTEM-written) so the protected user cannot fabricate a milestone. **Honest caveat:** this uses only agent-visible signals — it does **not** yet detect an actual porn-site visit (that lives in NextDNS); making the streak fully truthful would require pulling NextDNS logs via its API (future work). It is encouragement, not a lie-detector.
+
 ---
 
 ## 3. Architecture (two layers, mirrored per person)
@@ -57,7 +59,7 @@ Identical on both users' PCs. Runs as a **SYSTEM service / scheduled task** a st
    - Per-user config: User B registers their own approved endpoints (if any) the same way.
    - **Tor Browser** routes around DNS entirely (like a VPN), so it is handled by this same path — detected, killed, and reported — not by the DNS layer.
    - **DoH / browser "secure DNS"** would let a browser dodge NextDNS; neutralized by a firewall rule blocking known DoH resolver servers (see enforcement hardening).
-3. **Tamper alert:** service stopped/disabled/config-altered → notify Witness.
+3. **Tamper alert:** the agent emails the Witness whenever it detects and corrects a bypass attempt — **hosts block edited**, **DNS changed away from NextDNS**, or **agent-config.json altered** — each once per day. Combined with the dead-man's switch (service stopped/monitor silenced), this makes every bypass *seen* even on a machine where the protected user keeps admin. The agent runs on its **in-memory config**, so editing the config file on disk can't redirect or silence the alert — it only triggers one.
 4. **Dead-man's switch:** Witness warned if a scheduled report fails to arrive on time.
 5. **Supporter update (optional):** streak/milestone-only summary, stripped of raw data.
 
@@ -71,10 +73,17 @@ Each app or category carries one of three policies, chosen **jointly by both use
 
 Rationale: "looking at women on social media" is a common lateral relapse — the compulsion reroutes when the front door is locked. Per-app policy lets the pair lock the specific trigger apps (block/time-box) while leaving genuinely-needed apps report-only.
 
-### Phones (blocking + DNS-log accountability only)
-No background monitoring agent runs on either phone in v1; the phone accountability layer **is** the NextDNS query log.
-- **iPhone (User A):** NextDNS profile + Screen Time restrictions, **locked with User B's passcode.** iOS allows no monitoring agent.
-- **Android (User B):** NextDNS via **locked Private DNS** + Digital Wellbeing/Family Link limits, secrets held by User A. Android *can* support a stronger monitor later (accessibility service, uninstall-block via device-owner) — deferred past v1.
+### Phones (blocking + DNS-log accountability, via native parental systems)
+No custom monitoring agent runs on either phone in v1; the phone accountability layer is the NextDNS query log plus the platform's own parental-control reporting, with the **witness as parent/organizer**.
+
+- **iPhone (User A):** NextDNS profile + Screen Time restrictions, **locked with User B's passcode**; Screen Time under **Family Sharing** with User B as Family Organizer (activity reports + remote limits). To stop profile/Screen Time removal, the device should be **supervised** (Apple Configurator, free, needs a Mac + USB). iOS allows no monitoring agent and no VPN kill.
+- **Android (User B):** NextDNS via **locked Private DNS** + **Google Family Link** with User A as parent (app activity reports, app blocking, daily limits, uninstall/settings lock). Android *can* support a stronger custom monitor later (accessibility service, VPN-kill parity, uninstall-block via device-owner) — deferred past v1.
+
+#### iPhone web-activity limitation (explicit — set expectations)
+On iPhone the witness sees **which sites/domains** were accessed but **NOT the actual search terms or full URLs**.
+- **Visible:** every domain the phone resolves, via the NextDNS log — all apps and browsers, **incognito-proof** (DNS is below the browser). Plus rough Safari site + time in the Screen Time report.
+- **NOT visible:** the search queries you type and specific page URLs — these are encrypted inside HTTPS; DNS and Screen Time can't see them.
+- **Why iPhone is weaker than Windows here:** the Windows agent captures **active-window titles**, which often leak search terms/page titles. **iOS gives no app permission to read another app's screen or tab title**, so that layer cannot exist on iPhone. The only techniques that capture actual searches — screenshot monitoring or TLS decryption — are **blocked by Apple** on a normal iPhone (this limits every product, not just this one). Net on iPhone: *"which sites, incognito included"* — but not *"what was searched."*
 
 ---
 
@@ -83,7 +92,7 @@ No background monitoring agent runs on either phone in v1; the phone accountabil
 | Requirement | Mechanism | Device |
 |---|---|---|
 | Block porn sites | NextDNS filtering | All |
-| Witness sees history | NextDNS query log (Witness owns the account) | All |
+| Witness sees history | NextDNS query log (Witness owns the account); Windows adds window titles (search terms). **iPhone = domains only, no search terms** | All |
 | Works in incognito | DNS is below the browser; private mode can't hide it | All |
 | VPN bypass | Windows agent **disables** any unapproved VPN (Option A) + alerts Witness; approved endpoint `181.214.9.54` exempt | Windows |
 | Can't uninstall / tamper | SYSTEM service + standard-user account + tamper alert + dead-man's switch | Windows |
@@ -133,7 +142,7 @@ The two users run **the same build**; only configuration differs (who reports to
 
 - **Collusion / mutual leniency.** Two people fighting the same thing as each other's *only* witness can drift into going easy on each other on bad weeks. Inherent to a pure two-person peer model (chosen deliberately). A shared third anchor was considered and declined; revisit if drift shows up.
 - **VPN bypass is actively killed, not just reported (Option A kill-switch).** Any unapproved VPN adapter is disabled within ~1–2s and reported, so a VPN can't stay up long enough to be useful. Residual gaps: (a) the brief pre-detection window, and (b) the **approved work VPN (`181.214.9.54`)** — a deliberate allowlisted blind spot necessary for the author's job; if full-tunnel, the corporate filter guards that traffic.
-- **iOS allows no monitoring agent.** iPhone accountability = DNS log only.
+- **iOS allows no monitoring agent, and shows domains but not search terms.** iPhone accountability = NextDNS domain log (incognito-proof) + Screen Time reports. Actual search queries/full URLs are not visible on iPhone (HTTPS-encrypted; iOS forbids the window-title capture Windows uses, and blocks screenshot/TLS-decrypt monitoring). No VPN kill on iOS. Android can go further with a future custom app.
 - **A determined user with a second/unmanaged device defeats any of this.** The system assumes the user *wants* to be caught — inherent to the whole category.
 - **Screenshots deliberately excluded** in favor of URL history + active-window titles: lighter, more private, still incognito-proof via NextDNS.
 - **Free NextDNS tier (chosen for now) fails open at ~300k queries/month** — filtering silently stops until the month resets. Accepted for v1; upgrade to NextDNS Pro (~$2/mo, unlimited) to close it.

@@ -38,6 +38,8 @@ Start-ScheduledTask -TaskName AccountabilityMonitor
 
 The daily user account must be a **standard (non-admin) user**; only the witness holds the admin password. To remove: `.\install\uninstall.ps1` (admin).
 
+> **Phones:** see [MOBILE-SETUP.md](MOBILE-SETUP.md) for the Android (Family Link) and iPhone (Screen Time + supervision) deployment checklist.
+
 ## Acceptance checklist
 
 Run these as the **standard (non-admin) user** after install:

@@ -24,4 +24,21 @@ function Send-WitnessEmail {
     $msg.Dispose(); $client.Dispose()
 }
 
-Export-ModuleMember -Function Get-AgentConfig, Write-AgentLog, Send-WitnessEmail
+function New-PasswordHash {
+    # Stored form is "salt:sha256(salt+password)". The raw password is never persisted.
+    param([Parameter(Mandatory)][string]$Password, [string]$Salt = ([guid]::NewGuid().ToString("N")))
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes("$Salt$Password")
+    $hex = (($sha.ComputeHash($bytes)) | ForEach-Object { $_.ToString("x2") }) -join ''
+    $sha.Dispose()
+    return "$Salt`:$hex"
+}
+
+function Test-PasswordHash {
+    param([Parameter(Mandatory)][string]$Password, [Parameter(Mandatory)][string]$Stored)
+    $parts = $Stored -split ':', 2
+    if ($parts.Count -ne 2) { return $false }
+    return (New-PasswordHash -Password $Password -Salt $parts[0]) -eq $Stored
+}
+
+Export-ModuleMember -Function Get-AgentConfig, Write-AgentLog, Send-WitnessEmail, New-PasswordHash, Test-PasswordHash

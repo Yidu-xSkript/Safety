@@ -16,7 +16,7 @@ function Test-UnapprovedVpn {
 function Get-VpnAdapterState {
     # Returns @{ Present = <bool>; Adapters = <adapter objects> }
     # ponytail: heuristic VPN detection by adapter description — extend the regex as new clients show up.
-    $pattern = 'VPN|TAP|TUN|WireGuard|Wintun|OpenVPN|WAN Miniport \((IKEv2|L2TP|PPTP|SSTP|Network Monitor)\)'
+    $pattern = 'VPN|TAP|TUN|WireGuard|Wintun|OpenVPN|NordLynx|Mullvad|Proton|Private Internet Access|PIA|WAN Miniport \((IKEv2|L2TP|PPTP|SSTP|Network Monitor)\)'
     $vpn = Get-NetAdapter -ErrorAction SilentlyContinue |
         Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -match $pattern }
     return @{ Present = [bool]$vpn; Adapters = $vpn }
@@ -48,6 +48,26 @@ function Get-ActiveRemoteIp {
     return ($ips | Where-Object { $_ } | Select-Object -Unique)
 }
 
+function Test-VpnActive {
+    # Robust "is a VPN tunnel up?" check that does NOT depend on the adapter-description regex
+    # (which misses many clients). Uses three signals, any of which means a VPN is active:
+    #  1. a Connected built-in Windows VPN connection,
+    #  2. a /32 host route to an approved VPN endpoint (the OS adds this when the tunnel connects),
+    #  3. an up adapter whose description matches a known VPN pattern.
+    param([string[]]$ApprovedVpnIps = @())
+    try {
+        if (Get-VpnConnection -AllUserConnection -ErrorAction SilentlyContinue |
+            Where-Object { $_.ConnectionStatus -eq 'Connected' }) { return $true }
+    } catch { }
+    foreach ($ip in $ApprovedVpnIps) {
+        if (Get-NetRoute -DestinationPrefix "$ip/32" -ErrorAction SilentlyContinue) { return $true }
+    }
+    $pattern = 'VPN|TAP|TUN|WireGuard|Wintun|OpenVPN|NordLynx|Mullvad|Proton|Private Internet Access|PIA|WAN Miniport \((IKEv2|L2TP|PPTP|SSTP)\)'
+    if (Get-NetAdapter -ErrorAction SilentlyContinue |
+        Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -match $pattern }) { return $true }
+    return $false
+}
+
 function Test-HeartbeatStale {
     param(
         [AllowNull()][Nullable[datetime]]$LastBeat,
@@ -58,4 +78,4 @@ function Test-HeartbeatStale {
     return (($Now - $LastBeat).TotalSeconds -gt $ThresholdSeconds)
 }
 
-Export-ModuleMember -Function Test-UnapprovedVpn, Get-VpnAdapterState, Get-ActiveRemoteIp, Test-HeartbeatStale
+Export-ModuleMember -Function Test-UnapprovedVpn, Get-VpnAdapterState, Get-ActiveRemoteIp, Test-HeartbeatStale, Test-VpnActive
