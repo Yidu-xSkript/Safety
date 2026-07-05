@@ -15,6 +15,7 @@ $cfg       = Get-AgentConfig -Path (Join-Path $SecretsDir "agent-config.json")
 $heartbeat = Join-Path $RuntimeDir "monitor.heartbeat"
 $lastReport = Get-Date
 $startTime  = Get-Date   # for the dead-man startup grace
+$staleSince = $null      # when the monitor heartbeat first went stale (for self-heal + alert timing)
 $tamperNotified = $false
 $timeBoxAlerted = @{}   # "app|yyyyMMdd" -> $true, so each over-limit app alerts the witness once per day
 $tamperAlerted  = @{}   # "kind|yyyyMMdd" -> $true, so each tamper kind alerts the witness once per day
@@ -250,14 +251,25 @@ while ($true) {
     # Startup grace: don't fire the dead-man until the enforcer has run longer than the stale
     # window, so a monitor that is still coming up after boot/login doesn't false-alarm.
     $pastStartupGrace = ((Get-Date) - $startTime).TotalSeconds -gt [int]$cfg.heartbeatStaleSeconds
-    if ($pastStartupGrace -and (Test-HeartbeatStale -LastBeat $lastBeat -Now (Get-Date) -ThresholdSeconds ([int]$cfg.heartbeatStaleSeconds))) {
-        if (-not $tamperNotified) {
-            $alert = Format-AlertEmail -Kind "Tamper" -Detail "monitor heartbeat stale > $($cfg.heartbeatStaleSeconds)s"
+    $stale = $pastStartupGrace -and (Test-HeartbeatStale -LastBeat $lastBeat -Now (Get-Date) -ThresholdSeconds ([int]$cfg.heartbeatStaleSeconds))
+    if ($stale) {
+        if ($null -eq $staleSince) { $staleSince = Get-Date; Write-AgentLog "Monitor heartbeat stale; restarting monitor task." }
+        # SELF-HEAL: (re)start the monitor task each loop while it's stale. The enforcer runs as
+        # SYSTEM, so it can start the user-session monitor task. A monitor that was never started
+        # (task 'Ready') or was killed comes back on its own within seconds.
+        try { Start-ScheduledTask -TaskName "AccountabilityMonitor" -ErrorAction SilentlyContinue } catch { }
+        # Only alert the witness if it STAYS stale well past the threshold despite restart attempts
+        # (i.e. the monitor genuinely can't run) — so a self-healed blip never spams an email.
+        if ((((Get-Date) - $staleSince).TotalSeconds -gt (2 * [int]$cfg.heartbeatStaleSeconds)) -and -not $tamperNotified) {
+            $alert = Format-AlertEmail -Kind "Tamper" -Detail "monitor stale > $($cfg.heartbeatStaleSeconds)s and would not restart"
             Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $alert.Subject -Body $alert.Body
-            Write-AgentLog "Dead-man alert sent."
+            Write-AgentLog "Dead-man alert sent (monitor failed to restart)."
             $tamperNotified = $true
         }
-    } else { $tamperNotified = $false }
+    } else {
+        if ($staleSince) { Write-AgentLog "Monitor heartbeat healthy again." }
+        $staleSince = $null; $tamperNotified = $false
+    }
 
     # --- Scheduled report ---
     if (((Get-Date) - $lastReport).TotalMinutes -ge [int]$cfg.reportIntervalMinutes) {
