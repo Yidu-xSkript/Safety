@@ -41,6 +41,22 @@ Describe "ConvertFrom-NextDnsLog" {
     }
 }
 
+Describe "Merge-PornDomains" {
+    It "always includes the curated top sites even when the download omits them (the pornhub bug)" {
+        $downloaded = @("2pornhub.com", "somelongtail.xxx")   # note: NO plain pornhub.com
+        $m = Merge-PornDomains -Downloaded $downloaded -MaxDomains 20000
+        ($m -contains "pornhub.com")  | Should Be $true   # from built-ins, not the download
+        ($m -contains "xvideos.com")  | Should Be $true
+        ($m -contains "2pornhub.com") | Should Be $true   # long-tail from the download still present
+    }
+    It "caps to MaxDomains with the built-in top sites kept first" {
+        $downloaded = 1..50 | ForEach-Object { "tail$_.example" }
+        $m = Merge-PornDomains -Downloaded $downloaded -MaxDomains 10
+        @($m).Count | Should Be 10
+        ($m -contains "pornhub.com") | Should Be $true   # a top built-in survives the tight cap
+    }
+}
+
 Describe "Get-TorBlockDomains" {
     It "includes the main site (bare + www) and the dist host, with no duplicates" {
         $d = Get-TorBlockDomains

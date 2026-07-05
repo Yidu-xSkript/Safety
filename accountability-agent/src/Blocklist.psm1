@@ -122,6 +122,24 @@ function ConvertFrom-HostsList {
     return $out
 }
 
+function Merge-PornDomains {
+    # Put the curated built-in top-list at the FRONT of a (large) downloaded list, dedupe preserving
+    # order, then cap to MaxDomains. This guarantees the most popular sites (pornhub.com, xvideos.com,
+    # xhamster.com, ...) are always present: the Sinfonietta list is ~61k and roughly alphabetical, so
+    # a naive "first 20000" cut silently drops everything from 'p' onward — including pornhub.com,
+    # while junk like '2pornhub.com' (sorts under '2') survives. Built-ins first fixes that. Pure.
+    param([string[]]$Downloaded = @(), [int]$MaxDomains = 20000)
+    $seen = New-Object System.Collections.Generic.HashSet[string]
+    $out  = New-Object System.Collections.Generic.List[string]
+    foreach ($d in (@($script:BuiltInPornDomains) + @($Downloaded))) {
+        if (-not $d) { continue }
+        $dl = "$d".ToLower()
+        if ($seen.Add($dl)) { $out.Add($dl) }
+        if ($out.Count -ge $MaxDomains) { break }
+    }
+    return $out
+}
+
 function Update-PornBlocklist {
     # Refresh the cached blocklist if missing/older than MaxAgeHours.
     #  - No Url  -> write the built-in curated top list (fast, safe default).
@@ -155,8 +173,9 @@ function Update-PornBlocklist {
     }
     try {
         $resp = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 60
-        $domains = ConvertFrom-HostsList -Text $resp.Content
-        if ($domains.Count -gt $MaxDomains) { $domains = $domains[0..($MaxDomains - 1)] }
+        $parsed = ConvertFrom-HostsList -Text $resp.Content
+        # Merge the curated top-list in FRONT so popular sites survive the MaxDomains cap.
+        $domains = Merge-PornDomains -Downloaded $parsed -MaxDomains $MaxDomains
         if ($domains.Count -gt 0) {
             Set-Content -Path $CachePath -Value $domains -Encoding ASCII
             Remove-Item $fallbackMark -ErrorAction SilentlyContinue   # got the real list; clear fallback state
@@ -205,4 +224,4 @@ function Get-SafeSearchRedirects {
     return $map
 }
 
-Export-ModuleMember -Function ConvertFrom-HostsList, Update-PornBlocklist, Get-PornBlocklist, Get-BuiltInPornDomains, Get-TorBlockDomains, Select-PornHits, ConvertFrom-NextDnsLog, Get-NextDnsPornAttempts, Get-SafeSearchTargets, Get-SafeSearchRedirects
+Export-ModuleMember -Function ConvertFrom-HostsList, Merge-PornDomains, Update-PornBlocklist, Get-PornBlocklist, Get-BuiltInPornDomains, Get-TorBlockDomains, Select-PornHits, ConvertFrom-NextDnsLog, Get-NextDnsPornAttempts, Get-SafeSearchTargets, Get-SafeSearchRedirects
