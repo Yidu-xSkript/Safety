@@ -23,25 +23,28 @@ foreach ($port in 443, 80) {
 }
 if ($listeners.Count -eq 0) { return }   # nothing to do; ports occupied
 
+# Block on Socket.Select instead of polling: the thread sleeps (zero CPU, battery-friendly) until a
+# connection is actually pending on one of the listeners, or the 30s timeout elapses. A 200ms poll
+# would wake the CPU 5x/second and drain the battery for nothing.
 while ($true) {
     try {
-        $idle = $true
-        foreach ($l in $listeners) {
+        $read = New-Object System.Collections.ArrayList
+        foreach ($l in $listeners) { [void]$read.Add($l.Server) }
+        [System.Net.Sockets.Socket]::Select($read, $null, $null, 30000000)   # wait up to 30s (microseconds)
+        foreach ($sock in $read) {                                           # only ready sockets remain
+            $l = $listeners | Where-Object { $_.Server -eq $sock } | Select-Object -First 1
+            if (-not $l) { continue }
             $isTls = ($l.LocalEndpoint.Port -eq 443)
-            while ($l.Pending()) {
-                $idle = $false
-                $client = $l.AcceptTcpClient()
-                try {
-                    $client.ReceiveTimeout = 500
-                    $ns  = $client.GetStream()
-                    $buf = New-Object byte[] 4096
-                    $n   = $ns.Read($buf, 0, $buf.Length)
-                    $name = if ($isTls) { Get-TlsSni -Bytes $buf -Length $n } else { Get-HttpHost -Bytes $buf -Length $n }
-                    if ($name) { Add-Content -Path $spool -Value ("{0} | {1}" -f (Get-Date -Format "s"), $name) -ErrorAction SilentlyContinue }
-                } catch { }
-                finally { $client.Close() }
-            }
+            $client = $l.AcceptTcpClient()
+            try {
+                $client.ReceiveTimeout = 500
+                $ns  = $client.GetStream()
+                $buf = New-Object byte[] 4096
+                $n   = $ns.Read($buf, 0, $buf.Length)
+                $name = if ($isTls) { Get-TlsSni -Bytes $buf -Length $n } else { Get-HttpHost -Bytes $buf -Length $n }
+                if ($name) { Add-Content -Path $spool -Value ("{0} | {1}" -f (Get-Date -Format "s"), $name) -ErrorAction SilentlyContinue }
+            } catch { }
+            finally { $client.Close() }
         }
-        if ($idle) { Start-Sleep -Milliseconds 200 }   # nothing pending: don't spin the CPU
     } catch { Start-Sleep -Milliseconds 500 }
 }
