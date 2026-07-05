@@ -15,7 +15,7 @@
         else { $ts = ''; $text = $line.Trim() }
         if (-not $text) { continue }
         $time = ''
-        if ($ts) { $dt = [datetime]::MinValue; $time = if ([datetime]::TryParse($ts, [ref]$dt)) { $dt.ToString('HH:mm:ss') } else { $ts } }
+        if ($ts) { $dt = [datetime]::MinValue; $time = if ([datetime]::TryParse($ts, [ref]$dt)) { $dt.ToString('HH:mm') } else { $ts } }
         if (-not $byText.ContainsKey($text)) { $order += $text; $byText[$text] = New-Object System.Collections.Generic.List[string] }
         if ($time -and -not $byText[$text].Contains($time)) { [void]$byText[$text].Add($time) }
     }
@@ -23,7 +23,7 @@
         $times = $byText[$text]
         if ($times.Count -gt 0) { "$text`n        Accessed at: $($times -join ', ')" } else { $text }
     }
-    return ($blocks -join "`n`n")
+    return ($blocks -join ("`n" + ('-' * 50) + "`n"))
 }
 
 function Format-WitnessReport {

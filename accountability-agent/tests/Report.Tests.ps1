@@ -17,20 +17,24 @@ Describe "Format-WitnessReport" {
 }
 
 Describe "Group-ActivitySamples" {
-    It "groups repeated titles under one heading with all access times" {
+    It "groups repeated titles under one heading, collapsing same-minute samples to one HH:mm time" {
         $lines = @(
             "2026-07-01T10:00:15 | Research porn addiction blocker",
             "2026-07-01T10:00:30 | Research porn addiction blocker",
-            "2026-07-01T10:00:45 | Research porn addiction blocker"
+            "2026-07-01T10:01:45 | Research porn addiction blocker"
         )
         $out = Group-ActivitySamples -Lines $lines
-        # The title must appear exactly once, followed by its three times on one 'Accessed at' line.
+        # The title appears once; the three 15s samples collapse to two minute-level times (10:00, 10:01).
         (@(($out -split "`n") | Where-Object { $_ -eq "Research porn addiction blocker" }).Count) | Should Be 1
-        $out | Should Match "Accessed at: 10:00:15, 10:00:30, 10:00:45"
+        $out | Should Match "Accessed at: 10:00, 10:01"
     }
-    It "de-duplicates identical timestamps within a group" {
-        $lines = @("2026-07-01T10:00:15 | X", "2026-07-01T10:00:15 | X")
-        (Group-ActivitySamples -Lines $lines) | Should Match "Accessed at: 10:00:15$"
+    It "de-duplicates same-minute timestamps within a group" {
+        $lines = @("2026-07-01T10:00:15 | X", "2026-07-01T10:00:45 | X")
+        (Group-ActivitySamples -Lines $lines) | Should Match "Accessed at: 10:00$"
+    }
+    It "puts a separator line between distinct activities" {
+        $lines = @("2026-07-01T10:00:00 | Alpha", "2026-07-01T10:01:00 | Beta")
+        (Group-ActivitySamples -Lines $lines) | Should Match "----------"
     }
     It "keeps distinct activities in first-seen order" {
         $lines = @("2026-07-01T10:00:00 | Alpha", "2026-07-01T10:01:00 | Beta", "2026-07-01T10:02:00 | Alpha")
