@@ -30,7 +30,13 @@ if (Test-Path $hashFile) {
     }
 }
 
-Unregister-ScheduledTask -TaskName "AccountabilityEnforcer" -Confirm:$false -ErrorAction SilentlyContinue
-Unregister-ScheduledTask -TaskName "AccountabilityMonitor"  -Confirm:$false -ErrorAction SilentlyContinue
+foreach ($t in 'AccountabilityEnforcer','AccountabilityMonitor','AccountabilitySinkhole') {
+    Stop-ScheduledTask   -TaskName $t -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyContinue
+}
+# Kill any still-running instances so nothing keeps looping / holding the loopback ports after removal.
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='wscript.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'enforcer\.ps1|monitor\.ps1|sinkhole\.ps1|run-monitor-hidden\.vbs' } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Get-NetFirewallRule -DisplayName "AA-*" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-Write-Host "Removed tasks and firewall rules. DNS settings, $SecretsDir, and $RuntimeDir left in place; remove manually if desired."
+Write-Host "Removed tasks, processes, and firewall rules. DNS settings, $SecretsDir, and $RuntimeDir left in place; remove manually if desired."

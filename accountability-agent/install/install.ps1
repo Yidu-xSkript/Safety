@@ -7,6 +7,30 @@ param(
     [string]$UninstallPassword                  # optional: witness sets this to gate uninstall.ps1
 )
 
+# --- REINSTALL GATE. If the agent is already installed WITH an uninstall password, require that
+# password before we touch anything. Otherwise the protected user could simply re-run the installer
+# to reset the password / re-register the agent, defeating the witness's control. Wrong password =>
+# abort before any change, and notify the witness (same as a wrong-password uninstall attempt). ---
+$existingHashFile = Join-Path $SecretsDir "uninstall.hash"
+if (Test-Path $existingHashFile) {
+    Import-Module "$SrcDir/Common.psm1" -Force
+    $storedHash = (Get-Content $existingHashFile -Raw).Trim()
+    $curSec = Read-Host "Agent already installed. Enter the CURRENT uninstall password to reinstall" -AsSecureString
+    $curPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($curSec))
+    if (-not (Test-PasswordHash -Password $curPlain -Stored $storedHash)) {
+        Write-Host "Wrong password. Reinstall aborted (nothing was changed)." -ForegroundColor Red
+        try {   # best-effort witness alert about the attempt, using the currently-installed config
+            Import-Module "$SrcDir/Report.psm1" -Force -ErrorAction SilentlyContinue
+            $cfg0 = Get-AgentConfig -Path (Join-Path $SecretsDir "agent-config.json")
+            $a0 = Format-AlertEmail -Kind "UninstallAttempt" -Detail "reinstall attempted with a wrong uninstall password"
+            Send-WitnessEmail -Smtp $cfg0.smtp -To $cfg0.witnessEmail -Subject $a0.Subject -Body $a0.Body
+        } catch { }
+        exit 1
+    }
+    Write-Host "Uninstall password verified. Continuing reinstall." -ForegroundColor Green
+}
+
 # --- Stop any PREVIOUS instances first. Re-registering the task with -Force orphans a running
 # enforcer/monitor process (it keeps looping the old code), so without this a reinstall leaves
 # multiple enforcers all rewriting the hosts file every few seconds — they lock each other out
