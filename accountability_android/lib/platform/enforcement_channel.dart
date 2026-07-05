@@ -15,4 +15,5 @@ class EnforcementChannel {
   Future<void> startWatchdog() => _c.invokeMethod('startWatchdog');
   Future<void> requestAdmin() => _c.invokeMethod('requestAdmin');
   Future<void> release() => _c.invokeMethod('release');
+  Future<void> alertReleaseAttempt() => _c.invokeMethod('alertReleaseAttempt');
 }

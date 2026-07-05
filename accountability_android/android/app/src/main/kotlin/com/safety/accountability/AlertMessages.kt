@@ -1,6 +1,6 @@
 package com.safety.accountability
 
-enum class AlertKind { VPN_OFF, ADMIN_DISABLED, RELEASE_ATTEMPT, HEARTBEAT }
+enum class AlertKind { VPN_OFF, ADMIN_DISABLED, RELEASE_ATTEMPT, HEARTBEAT, PORN_ATTEMPT }
 data class AlertEmail(val subject: String, val body: String)
 
 object AlertMessages {
@@ -17,5 +17,8 @@ object AlertMessages {
         AlertKind.HEARTBEAT -> AlertEmail(
             "[Accountability] Daily heartbeat: still protected",
             "Protection is active. $detail")
+        AlertKind.PORN_ATTEMPT -> AlertEmail(
+            "[Accountability] Adult site attempted",
+            "An adult/porn domain was requested on the phone (seen in the DNS tunnel). It was blocked by NextDNS; this fires on the attempt. Domain: $detail")
     }
 }

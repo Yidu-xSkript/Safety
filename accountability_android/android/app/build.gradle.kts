@@ -24,7 +24,10 @@ android {
         applicationId = "com.safety.accountability_android"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Pinned to 28 (Android 9): the app requires foreground services + notification channels
+        // (API 26) and the enforcement model targets Android 9+. Don't fall back to Flutter's lower
+        // default, which would make the FGS/notification APIs unsafe without version guards.
+        minSdk = maxOf(28, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
