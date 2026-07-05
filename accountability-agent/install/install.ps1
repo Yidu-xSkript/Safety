@@ -96,7 +96,7 @@ icacls $installSrc /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(O
 $enfAction  = New-ScheduledTaskAction -Execute "powershell.exe" `
     -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$installSrc\enforcer.ps1`" -SecretsDir `"$SecretsDir`" -RuntimeDir `"$RuntimeDir`""
 $enfTrigger = New-ScheduledTaskTrigger -AtStartup
-$enfSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -DisallowStartIfOnBatteries:$false -StopIfGoingOnBatteries:$false
+$enfSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 Register-ScheduledTask -TaskName "AccountabilityEnforcer" -Action $enfAction -Trigger $enfTrigger `
     -Settings $enfSet -User "SYSTEM" -RunLevel Highest -Force
 
@@ -104,7 +104,7 @@ Register-ScheduledTask -TaskName "AccountabilityEnforcer" -Action $enfAction -Tr
 # Launched via the hidden VBScript wrapper so no console window ever appears.
 $monAction  = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$hiddenVbs`""
 $monTrigger = New-ScheduledTaskTrigger -AtLogOn
-$monSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -DisallowStartIfOnBatteries:$false -StopIfGoingOnBatteries:$false
+$monSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 Register-ScheduledTask -TaskName "AccountabilityMonitor" -Action $monAction -Trigger $monTrigger `
     -Settings $monSet -RunLevel Limited -Force
 
@@ -112,7 +112,7 @@ Register-ScheduledTask -TaskName "AccountabilityMonitor" -Action $monAction -Tri
 $sinkAction  = New-ScheduledTaskAction -Execute "powershell.exe" `
     -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$installSrc\sinkhole.ps1`" -RuntimeDir `"$RuntimeDir`""
 $sinkTrigger = New-ScheduledTaskTrigger -AtStartup
-$sinkSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -DisallowStartIfOnBatteries:$false -StopIfGoingOnBatteries:$false
+$sinkSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 Register-ScheduledTask -TaskName "AccountabilitySinkhole" -Action $sinkAction -Trigger $sinkTrigger `
     -Settings $sinkSet -User "SYSTEM" -RunLevel Highest -Force
 
