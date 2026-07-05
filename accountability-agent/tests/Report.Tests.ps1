@@ -38,6 +38,9 @@ Describe "Format-AlertEmail" {
     It "labels an approved-VPN-active alert" {
         (Format-AlertEmail -Kind "ApprovedVpnActive" -Detail "").Subject | Should Match "Approved VPN"
     }
+    It "labels an agent-reinstalled alert" {
+        (Format-AlertEmail -Kind "AgentReinstalled" -Detail "").Subject | Should Match "re-installed"
+    }
 }
 
 Describe "Format-SupporterEmail" {

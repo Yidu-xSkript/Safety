@@ -12,6 +12,10 @@ New-Item -ItemType Directory -Path $SecretsDir -Force | Out-Null
 Copy-Item $ConfigPath (Join-Path $SecretsDir "agent-config.json") -Force
 icacls $SecretsDir /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" | Out-Null
 
+# Fresh install stamp each run — the enforcer alerts the witness when this changes (i.e. someone
+# re-ran the installer, which can re-register the agent or change the uninstall password).
+[guid]::NewGuid().ToString() | Set-Content -Path (Join-Path $SecretsDir "install.stamp") -Encoding ASCII
+
 # --- Optional uninstall password (witness-set). Prompted securely if not passed on the command
 # --- line, so it never lands in PowerShell history. Stored as a salted hash in the admin-only dir.
 if (-not $UninstallPassword) {

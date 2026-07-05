@@ -22,6 +22,9 @@ $firstLoop      = $true # suppress alerts on the initial DNS/hosts application (
 $failsafeTripped = $false # true while NextDNS is unreachable and the DNS lock has been backed off
 $configPath = Join-Path $SecretsDir "agent-config.json"
 $configHash = try { (Get-FileHash -Path $configPath -Algorithm SHA256 -ErrorAction Stop).Hash } catch { "" }
+$installStampFile = Join-Path $SecretsDir "install.stamp"
+$installSeenFile  = Join-Path $SecretsDir "install.seen"
+$installSeen = if (Test-Path $installSeenFile) { (Get-Content $installSeenFile -Raw).Trim() } else { "" }
 
 # Porn blocklist (VPN-proof via the hosts file). Downloaded + refreshed daily by the agent.
 $hostsPath   = "$env:WINDIR\System32\drivers\etc\hosts"
@@ -194,6 +197,25 @@ while ($true) {
             $tamperAlerted[$k] = $true
         }
         $configHash = $curHash
+    }
+
+    # --- Re-install / uninstall-password-change detection ---
+    # install.ps1 writes a fresh install.stamp each run; a change means the installer was re-run
+    # (which can re-register the agent or change the uninstall password). Alert the witness.
+    $installNow = if (Test-Path $installStampFile) { (Get-Content $installStampFile -Raw).Trim() } else { "" }
+    if ($installNow -and $installNow -ne $installSeen) {
+        if ($installSeen) {   # not the very first install -> the installer was re-run
+            $streak.Flagged = $true
+            $k = "AgentReinstalled|$day"
+            if (-not $tamperAlerted[$k]) {
+                $al = Format-AlertEmail -Kind "AgentReinstalled" -Detail ""
+                Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                Write-AgentLog "Agent re-installed / uninstall password may have changed; witness alerted."
+                $tamperAlerted[$k] = $true
+            }
+        }
+        $installSeen = $installNow
+        Set-Content -Path $installSeenFile -Value $installSeen -Encoding ASCII
     }
 
     # --- Supporter mode: milestone encouragement to the partner (opt-in via supporterEmail) ---
