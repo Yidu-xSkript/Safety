@@ -42,6 +42,16 @@ $cfg = Get-Content $ConfigPath -Raw | ConvertFrom-Json
 $installSrc = "C:\Program Files\AccountabilityAgent"
 New-Item -ItemType Directory -Path $installSrc -Force | Out-Null
 Copy-Item "$SrcDir/*" $installSrc -Recurse -Force
+
+# Hidden launcher for the monitor: powershell -WindowStyle Hidden still flashes/leaves a closeable
+# console. wscript.Run(..., 0, ...) launches it with a truly hidden window — no terminal appears.
+$hiddenVbs = Join-Path $installSrc "run-monitor-hidden.vbs"
+# window style 0 = hidden; wait = True so wscript stays alive for the monitor's lifetime, keeping
+# the scheduled task in the 'Running' state (single-instance) instead of exiting immediately.
+$vbsLine = 'CreateObject("Wscript.Shell").Run "powershell -NoProfile -ExecutionPolicy Bypass -File ""' `
+    + "$installSrc\monitor.ps1" + '"" -RuntimeDir ""' + $RuntimeDir + '""", 0, True'
+Set-Content -Path $hiddenVbs -Value $vbsLine -Encoding ASCII
+
 icacls $installSrc /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" "Users:(OI)(CI)RX" | Out-Null
 
 # Enforcer: runs as SYSTEM at boot, restarts if it exits.
@@ -53,8 +63,8 @@ Register-ScheduledTask -TaskName "AccountabilityEnforcer" -Action $enfAction -Tr
     -Settings $enfSet -User "SYSTEM" -RunLevel Highest -Force
 
 # Monitor: runs in the interactive user's session at logon (RuntimeDir only — no secrets).
-$monAction  = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$installSrc\monitor.ps1`" -RuntimeDir `"$RuntimeDir`""
+# Launched via the hidden VBScript wrapper so no console window ever appears.
+$monAction  = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$hiddenVbs`""
 $monTrigger = New-ScheduledTaskTrigger -AtLogOn
 $monSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
 Register-ScheduledTask -TaskName "AccountabilityMonitor" -Action $monAction -Trigger $monTrigger `
