@@ -15,8 +15,9 @@ param(
 foreach ($t in 'AccountabilityEnforcer','AccountabilityMonitor') {
     Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
 }
+foreach ($t in 'AccountabilitySinkhole') { Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue }
 Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='wscript.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -match 'enforcer\.ps1|monitor\.ps1|run-monitor-hidden\.vbs' } |
+    Where-Object { $_.CommandLine -match 'enforcer\.ps1|monitor\.ps1|sinkhole\.ps1|run-monitor-hidden\.vbs' } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 1   # let the hosts-file handle from any killed enforcer release
 
@@ -71,7 +72,7 @@ icacls $installSrc /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(O
 $enfAction  = New-ScheduledTaskAction -Execute "powershell.exe" `
     -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$installSrc\enforcer.ps1`" -SecretsDir `"$SecretsDir`" -RuntimeDir `"$RuntimeDir`""
 $enfTrigger = New-ScheduledTaskTrigger -AtStartup
-$enfSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+$enfSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -DisallowStartIfOnBatteries:$false -StopIfGoingOnBatteries:$false
 Register-ScheduledTask -TaskName "AccountabilityEnforcer" -Action $enfAction -Trigger $enfTrigger `
     -Settings $enfSet -User "SYSTEM" -RunLevel Highest -Force
 
@@ -79,13 +80,22 @@ Register-ScheduledTask -TaskName "AccountabilityEnforcer" -Action $enfAction -Tr
 # Launched via the hidden VBScript wrapper so no console window ever appears.
 $monAction  = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$hiddenVbs`""
 $monTrigger = New-ScheduledTaskTrigger -AtLogOn
-$monSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+$monSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -DisallowStartIfOnBatteries:$false -StopIfGoingOnBatteries:$false
 Register-ScheduledTask -TaskName "AccountabilityMonitor" -Action $monAction -Trigger $monTrigger `
     -Settings $monSet -RunLevel Limited -Force
+
+# Sinkhole: runs as SYSTEM at boot (binds loopback :443/:80 to log blocked-domain attempts, VPN-proof).
+$sinkAction  = New-ScheduledTaskAction -Execute "powershell.exe" `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$installSrc\sinkhole.ps1`" -RuntimeDir `"$RuntimeDir`""
+$sinkTrigger = New-ScheduledTaskTrigger -AtStartup
+$sinkSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -DisallowStartIfOnBatteries:$false -StopIfGoingOnBatteries:$false
+Register-ScheduledTask -TaskName "AccountabilitySinkhole" -Action $sinkAction -Trigger $sinkTrigger `
+    -Settings $sinkSet -User "SYSTEM" -RunLevel Highest -Force
 
 # Start both now so protection is active immediately (don't wait for a reboot/logon).
 Start-ScheduledTask -TaskName "AccountabilityEnforcer" -ErrorAction SilentlyContinue
 Start-ScheduledTask -TaskName "AccountabilityMonitor"  -ErrorAction SilentlyContinue
+Start-ScheduledTask -TaskName "AccountabilitySinkhole" -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 Write-Host "Installed and started. Current state:"
 Get-ScheduledTask -TaskName Accountability* | Select-Object TaskName, State | Format-Table -AutoSize

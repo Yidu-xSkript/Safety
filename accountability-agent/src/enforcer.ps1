@@ -64,6 +64,9 @@ $nextDnsProfileId = "$($cfg.nextDnsProfileId)"
 $nextDnsAttemptAlertEnabled = ($nextDnsApiKey -and $nextDnsProfileId -and -not ($cfg.nextDnsAttemptAlertEnabled -eq $false))
 $nextDnsPollSeconds = if ($cfg.nextDnsPollSeconds) { [int]$cfg.nextDnsPollSeconds } else { 60 }   # don't hammer the API
 $lastNextDnsPoll = [datetime]::MinValue
+# Local sinkhole attempt alert: the sinkhole task logs the hostname of every blocked domain a browser
+# tries to reach (via TLS SNI). This is the VPN-proof "email me when I TRY" path. Default ON.
+$sinkholeAlertEnabled = -not ($cfg.sinkholeAlertEnabled -eq $false)
 $expectedHostsHash = ""     # hash of the hosts file after our last write, for cheap tamper detection
 $desired = $null            # cached desired domain set (app-policy + porn); recomputed only on change
 $safeRedirects = @{}        # cached SafeSearch host->IP redirects; recomputed with $desired
@@ -399,6 +402,30 @@ while ($true) {
                 Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
                 Write-AgentLog "Instant alert: adult site ATTEMPTED via NextDNS ($dom); witness notified."
                 $pornAlerted[$k] = $true
+            }
+        }
+    }
+
+    # --- Local sinkhole attempt alert: the sinkhole task logs every blocked domain a browser tried
+    # to reach (recovered via TLS SNI), which works even on a VPN where NextDNS is blind. Match those
+    # against the porn list and email the witness. Clear the spool after reading (dedup is per-day
+    # in-memory, so a repeat attempt to the same domain won't re-spam within the day). ---
+    if ($sinkholeAlertEnabled) {
+        $sinkSpool = Join-Path $RuntimeDir "sinkhole-spool.txt"
+        if (Test-Path $sinkSpool) {
+            $pornListSink = Get-PornBlocklist -CachePath $pornCache
+            $sinkLines = @(Get-Content $sinkSpool -ErrorAction SilentlyContinue)
+            Clear-Content -Path $sinkSpool -ErrorAction SilentlyContinue
+            foreach ($hit in @(Select-PornHits -Lines $sinkLines -Domains $pornListSink)) {
+                $dom = ((($hit -split '\s*\|\s*', 2)[-1]).Trim())
+                $k = "attempt:$dom|$day"   # shared with the NextDNS attempt alert: one email per domain/day
+                if ($dom -and -not $pornAlerted[$k]) {
+                    $streak.Flagged = $true
+                    $al = Format-AlertEmail -Kind "PornAttempt" -Detail $dom
+                    Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                    Write-AgentLog "Instant alert: adult site ATTEMPTED (sinkhole/VPN-proof) ($dom); witness notified."
+                    $pornAlerted[$k] = $true
+                }
             }
         }
     }

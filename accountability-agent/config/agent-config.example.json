@@ -15,6 +15,7 @@
   "nextDnsProfileId": "",
   "nextDnsAttemptAlertEnabled": true,
   "nextDnsPollSeconds": 60,
+  "sinkholeAlertEnabled": true,
   "safeSearchEnabled": true,
   "dohFirewallEnabled": false,
   "dnsManagementEnabled": false,
