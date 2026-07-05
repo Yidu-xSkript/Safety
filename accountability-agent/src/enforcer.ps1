@@ -38,6 +38,12 @@ $configHash = try { (Get-FileHash -Path $configPath -Algorithm SHA256 -ErrorActi
 $installStampFile = Join-Path $SecretsDir "install.stamp"
 $installSeenFile  = Join-Path $SecretsDir "install.seen"
 $installSeen = if (Test-Path $installSeenFile) { (Get-Content $installSeenFile -Raw).Trim() } else { "" }
+$lastHostsLockLog = [datetime]::MinValue   # rate-limit the "hosts locked by another process" log line
+# Post-install grace: for a few minutes after an install, the installer legitimately changes the
+# config (hash) and stamp, which would otherwise fire ConfigTamper + AgentReinstalled every setup.
+# Suppress those (but still absorb the change) while within the window off the install.stamp's mtime.
+$installTime = if (Test-Path $installStampFile) { (Get-Item $installStampFile).LastWriteTime } else { Get-Date }
+$graceMinutes = if ($null -ne $cfg.postInstallGraceMinutes) { [int]$cfg.postInstallGraceMinutes } else { 5 }
 
 # Porn blocklist (VPN-proof via the hosts file). Downloaded + refreshed daily by the agent.
 $hostsPath   = "$env:WINDIR\System32\drivers\etc\hosts"
@@ -76,6 +82,9 @@ while ($true) {
   # trigger a restart that re-fires alerts. Contain each iteration; log and continue.
   try {
     $day = Get-Date -Format "yyyyMMdd"
+    # Within the post-install grace window, the installer's own config/stamp changes are expected —
+    # absorb them silently instead of alerting the witness for every (re)install.
+    $inGrace = ((Get-Date) - $installTime).TotalMinutes -lt $graceMinutes
     # Roll the clean-day streak forward if the calendar day changed.
     $streak = Update-DayState -State $streak -Today $day
 
@@ -225,6 +234,11 @@ while ($true) {
     $curHostsHash = if (Test-Path $hostsPath) { (Get-FileHash -Path $hostsPath -Algorithm SHA256).Hash } else { "" }
     $tampered = (-not $firstLoop) -and (-not $setChanged) -and ($curHostsHash -ne $expectedHostsHash)
     if ($firstLoop -or $setChanged -or $tampered) {
+      # The hosts file is often held by another process (Defender/AV scanning it after each rewrite,
+      # heavy while a VPN flaps and the porn set is toggled in/out). If the write can't complete,
+      # DON'T log every poll and DON'T treat it as tampering — note it at most once per 10 min, leave
+      # $expectedHostsHash unchanged, and retry next loop. This is contention, not an external edit.
+      try {
         Set-HostsBlock -Domains $desired -Redirects $safeRedirects | Out-Null
         $expectedHostsHash = if (Test-Path $hostsPath) { (Get-FileHash -Path $hostsPath -Algorithm SHA256).Hash } else { "" }
         if ($tampered) {
@@ -237,20 +251,28 @@ while ($true) {
                 $tamperAlerted[$k] = $true
             }
         }
+      } catch {
+        if (((Get-Date) - $lastHostsLockLog).TotalMinutes -gt 10) {
+            Write-AgentLog "Hosts file locked by another process; will retry next loop (not tampering)."
+            $lastHostsLockLog = Get-Date
+        }
+      }
     }
 
     # --- Config-file tamper: alert if agent-config.json changed on disk ---
     $curHash = try { (Get-FileHash -Path $configPath -Algorithm SHA256 -ErrorAction Stop).Hash } catch { $configHash }
     if ($configHash -and $curHash -ne $configHash) {
-        $streak.Flagged = $true
-        $k = "ConfigTamper|$day"
-        if (-not $tamperAlerted[$k]) {
-            $al = Format-AlertEmail -Kind "ConfigTamper" -Detail ""
-            Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
-            Write-AgentLog "Tamper: agent-config.json altered + alerted."
-            $tamperAlerted[$k] = $true
+        if (-not $inGrace) {   # a config edit right after install is the installer itself, not tampering
+            $streak.Flagged = $true
+            $k = "ConfigTamper|$day"
+            if (-not $tamperAlerted[$k]) {
+                $al = Format-AlertEmail -Kind "ConfigTamper" -Detail ""
+                Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                Write-AgentLog "Tamper: agent-config.json altered + alerted."
+                $tamperAlerted[$k] = $true
+            }
         }
-        $configHash = $curHash
+        $configHash = $curHash   # absorb the new hash either way, so we don't re-fire after grace
     }
 
     # --- Re-install / uninstall-password-change detection ---
@@ -258,7 +280,7 @@ while ($true) {
     # (which can re-register the agent or change the uninstall password). Alert the witness.
     $installNow = if (Test-Path $installStampFile) { (Get-Content $installStampFile -Raw).Trim() } else { "" }
     if ($installNow -and $installNow -ne $installSeen) {
-        if ($installSeen) {   # not the very first install -> the installer was re-run
+        if ($installSeen -and -not $inGrace) {   # re-run (not first install) AND past the grace window
             $streak.Flagged = $true
             $k = "AgentReinstalled|$day"
             if (-not $tamperAlerted[$k]) {

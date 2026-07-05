@@ -7,6 +7,19 @@ param(
     [string]$UninstallPassword                  # optional: witness sets this to gate uninstall.ps1
 )
 
+# --- Stop any PREVIOUS instances first. Re-registering the task with -Force orphans a running
+# enforcer/monitor process (it keeps looping the old code), so without this a reinstall leaves
+# multiple enforcers all rewriting the hosts file every few seconds — they lock each other out
+# ("hosts is being used by another process") and each orphan re-sends witness alerts. Kill them,
+# then let the file handles release before we re-register. ---
+foreach ($t in 'AccountabilityEnforcer','AccountabilityMonitor') {
+    Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
+}
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='wscript.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'enforcer\.ps1|monitor\.ps1|run-monitor-hidden\.vbs' } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Start-Sleep -Seconds 1   # let the hosts-file handle from any killed enforcer release
+
 # --- Secrets dir: admin-only. Holds the config with the SMTP app password. ---
 New-Item -ItemType Directory -Path $SecretsDir -Force | Out-Null
 Copy-Item $ConfigPath (Join-Path $SecretsDir "agent-config.json") -Force
