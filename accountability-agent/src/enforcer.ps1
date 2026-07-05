@@ -20,6 +20,17 @@ $tamperNotified = $false
 $timeBoxAlerted = @{}   # "app|yyyyMMdd" -> $true, so each over-limit app alerts the witness once per day
 $tamperAlerted  = @{}   # "kind|yyyyMMdd" -> $true, so each tamper kind alerts the witness once per day
 $pornAlerted    = @{}   # "url|yyyyMMdd" -> $true, so each adult URL fires one instant alert per day (no spam on repeat visits)
+# PERSIST the tamper-alert dedup across restarts. In-memory only, it was re-armed on every enforcer
+# restart (reinstall, dead-man self-heal, crash) — so the witness got the SAME alert re-sent each
+# time (the #1 cause of inbox spam during setup). Load today's already-sent keys so we don't re-fire.
+$alertStateFile = Join-Path $SecretsDir "alert-state.txt"
+$todayInit = Get-Date -Format "yyyyMMdd"
+if (Test-Path $alertStateFile) {
+    foreach ($key in (Get-Content $alertStateFile -ErrorAction SilentlyContinue)) {
+        if ($key -and $key.EndsWith("|$todayInit")) { $tamperAlerted[$key] = $true }
+    }
+}
+$lastAlertKeys = (($tamperAlerted.Keys | Sort-Object) -join "`n")
 $firstLoop      = $true # suppress alerts on the initial DNS/hosts application (that's setup, not tampering)
 $failsafeTripped = $false # true while NextDNS is unreachable and the DNS lock has been backed off
 $configPath = Join-Path $SecretsDir "agent-config.json"
@@ -279,6 +290,14 @@ while ($true) {
     if ($serialized -ne $lastStreakSerialized) {
         $serialized | Set-Content -Path $streakFile -Encoding utf8
         $lastStreakSerialized = $serialized
+    }
+
+    # --- Persist the tamper-alert dedup when it changed, so a later restart won't re-send today's
+    # alerts. (Old keys self-expire: startup only loads keys ending in today's date.) ---
+    $alertKeys = (($tamperAlerted.Keys | Sort-Object) -join "`n")
+    if ($alertKeys -ne $lastAlertKeys) {
+        Set-Content -Path $alertStateFile -Value @($tamperAlerted.Keys | Where-Object { $_ }) -Encoding ASCII
+        $lastAlertKeys = $alertKeys
     }
 
     # --- Dead-man's switch: monitor heartbeat must be fresh ---

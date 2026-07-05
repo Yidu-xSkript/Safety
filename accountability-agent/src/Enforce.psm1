@@ -172,10 +172,16 @@ function Set-HostsBlock {
     $block = @($begin) + ($Domains | ForEach-Object { "127.0.0.1 $_" }) + $redirectLines + @($end)
     $new = @($kept + $block)
     if (($new -join "`n") -ne ($content -join "`n")) {
-        Set-Content -Path $HostsPath -Value $new -Encoding ASCII
-        return $true    # file was out of sync and had to be rewritten
+        # The hosts file is frequently locked for a moment (Defender/AV scanning it right after a
+        # write, or another tool touching it). Retry so a transient lock doesn't (a) throw a loop
+        # error and (b) leave the file un-rewritten, which the enforcer then misreads as external
+        # tampering and alerts the witness about. ~1.5s of retries clears the common transient lock.
+        for ($try = 1; $try -le 6; $try++) {
+            try { Set-Content -Path $HostsPath -Value $new -Encoding ASCII -ErrorAction Stop; return $true }
+            catch { if ($try -eq 6) { throw }; Start-Sleep -Milliseconds 250 }
+        }
     }
-    return $false
+    return $false    # already in sync, nothing to write
 }
 
 Export-ModuleMember -Function Set-NextDnsLock, Set-DohFirewallBlock, Disable-VpnAdapter, Set-HostsBlock, Set-IncognitoDisabled, Select-TorProcess, Stop-TorBrowser, Test-NextDnsReachable, Remove-DohFirewallBlock, Reset-DnsToAuto
