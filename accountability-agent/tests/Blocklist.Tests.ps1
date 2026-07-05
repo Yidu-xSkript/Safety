@@ -23,6 +23,24 @@ Describe "Select-PornHits" {
     }
 }
 
+Describe "ConvertFrom-NextDnsLog" {
+    It "extracts '<timestamp> | <domain>' lines from the NextDNS logs API JSON" {
+        $json = '{"data":[{"timestamp":"2026-07-05T15:00:00.000Z","domain":"pornhub.com","status":"blocked"},{"timestamp":"2026-07-05T15:01:00.000Z","domain":"google.com","status":"default"}]}'
+        $lines = @(ConvertFrom-NextDnsLog -Json $json)
+        $lines.Count | Should Be 2
+        ($lines[0]) | Should Match "\| pornhub\.com$"
+    }
+    It "feeds Select-PornHits so a blocked porn query is caught but a clean one is not" {
+        $json = '{"data":[{"timestamp":"t","domain":"www.xhamster.com"},{"timestamp":"t","domain":"wikipedia.org"}]}'
+        $hits = @(Select-PornHits -Lines (ConvertFrom-NextDnsLog -Json $json) -Domains @("xhamster.com"))
+        $hits.Count | Should Be 1
+        $hits[0] | Should Match "xhamster"
+    }
+    It "returns nothing on malformed JSON (fail-quiet)" {
+        @(ConvertFrom-NextDnsLog -Json "not json").Count | Should Be 0
+    }
+}
+
 Describe "Get-TorBlockDomains" {
     It "includes the main site (bare + www) and the dist host, with no duplicates" {
         $d = Get-TorBlockDomains

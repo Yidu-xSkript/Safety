@@ -69,6 +69,38 @@ function Select-PornHits {
     return $hits
 }
 
+function ConvertFrom-NextDnsLog {
+    # Parse the NextDNS logs API JSON ({ "data": [ { timestamp, domain, status }, ... ] }) into
+    # "<timestamp> | <domain>" lines — the same shape Select-PornHits consumes, so porn-ATTEMPT
+    # detection reuses the existing matcher. Pure -> unit-testable with a captured JSON sample.
+    param([Parameter(Mandatory)][string]$Json)
+    $out = New-Object System.Collections.Generic.List[string]
+    $obj = try { $Json | ConvertFrom-Json } catch { $null }
+    foreach ($e in @($obj.data)) {
+        if ($e.domain) { $out.Add(("{0} | {1}" -f "$($e.timestamp)", $e.domain)) }
+    }
+    return $out
+}
+
+function Get-NextDnsPornAttempts {
+    # Fetch recent NextDNS query logs and return the porn-list matches as "<timestamp> | <domain>"
+    # lines. NextDNS logs EVERY DNS query, so this catches ATTEMPTS the browser-history reader cannot
+    # (a blocked site never loads, so it never appears in history) — the "email me when they TRY,
+    # blocked or not" path. Fails quiet (returns @()) on any network/API error so it never breaks the
+    # enforcer loop. NextDNS is blind while a VPN tunnels DNS elsewhere; the history alert covers that.
+    param(
+        [Parameter(Mandatory)][string]$ApiKey,
+        [Parameter(Mandatory)][string]$ProfileId,
+        [string[]]$Domains = @(),
+        [int]$Limit = 100
+    )
+    try {
+        $uri  = "https://api.nextdns.io/profiles/$ProfileId/logs?limit=$Limit"
+        $resp = Invoke-WebRequest -Uri $uri -Headers @{ "X-Api-Key" = $ApiKey } -UseBasicParsing -TimeoutSec 20
+        return Select-PornHits -Lines (ConvertFrom-NextDnsLog -Json $resp.Content) -Domains $Domains
+    } catch { return @() }
+}
+
 function ConvertFrom-HostsList {
     # Parse hosts-format ("0.0.0.0 domain" / "127.0.0.1 domain") or plain-domain text
     # into a unique, lower-cased domain list. Skips comments, blank lines, IPs, and localhost.
@@ -173,4 +205,4 @@ function Get-SafeSearchRedirects {
     return $map
 }
 
-Export-ModuleMember -Function ConvertFrom-HostsList, Update-PornBlocklist, Get-PornBlocklist, Get-BuiltInPornDomains, Get-TorBlockDomains, Select-PornHits, Get-SafeSearchTargets, Get-SafeSearchRedirects
+Export-ModuleMember -Function ConvertFrom-HostsList, Update-PornBlocklist, Get-PornBlocklist, Get-BuiltInPornDomains, Get-TorBlockDomains, Select-PornHits, ConvertFrom-NextDnsLog, Get-NextDnsPornAttempts, Get-SafeSearchTargets, Get-SafeSearchRedirects

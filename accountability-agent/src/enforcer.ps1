@@ -57,6 +57,13 @@ $dnsMgmtEnabled = -not ($cfg.dnsManagementEnabled -eq $false)   # let the agent 
 $incognitoDisableEnabled = -not ($cfg.incognitoDisableEnabled -eq $false)   # kill browser incognito/private mode; default ON
 $torBlockEnabled = -not ($cfg.torBlockEnabled -eq $false)   # detect + close Tor Browser (bypasses NextDNS); default ON
 $instantPornAlertEnabled = -not ($cfg.instantPornAlertEnabled -eq $false)   # email witness the moment a porn URL is seen; default ON
+# NextDNS ATTEMPT alert: emails the witness when a porn domain is REQUESTED (blocked or not), via
+# the NextDNS query log. Presence-gated: on only when both an API key and a profile id are configured.
+$nextDnsApiKey    = "$($cfg.nextDnsApiKey)"
+$nextDnsProfileId = "$($cfg.nextDnsProfileId)"
+$nextDnsAttemptAlertEnabled = ($nextDnsApiKey -and $nextDnsProfileId -and -not ($cfg.nextDnsAttemptAlertEnabled -eq $false))
+$nextDnsPollSeconds = if ($cfg.nextDnsPollSeconds) { [int]$cfg.nextDnsPollSeconds } else { 60 }   # don't hammer the API
+$lastNextDnsPoll = [datetime]::MinValue
 $expectedHostsHash = ""     # hash of the hosts file after our last write, for cheap tamper detection
 $desired = $null            # cached desired domain set (app-policy + porn); recomputed only on change
 $safeRedirects = @{}        # cached SafeSearch host->IP redirects; recomputed with $desired
@@ -373,6 +380,25 @@ while ($true) {
                     Write-AgentLog "Instant alert: adult site accessed ($url); witness notified."
                     $pornAlerted[$k] = $true
                 }
+            }
+        }
+    }
+
+    # --- NextDNS ATTEMPT alert: poll the DNS query log (rate-limited) so the witness is emailed the
+    # moment a porn domain is REQUESTED, blocked or not. Catches what the history reader can't: a
+    # blocked site never loads, so it never reaches browser history, but it DOES hit the DNS log. ---
+    if ($nextDnsAttemptAlertEnabled -and ((Get-Date) - $lastNextDnsPoll).TotalSeconds -ge $nextDnsPollSeconds) {
+        $lastNextDnsPoll = Get-Date
+        $pornListDns = Get-PornBlocklist -CachePath $pornCache
+        foreach ($hit in @(Get-NextDnsPornAttempts -ApiKey $nextDnsApiKey -ProfileId $nextDnsProfileId -Domains $pornListDns)) {
+            $dom = ((($hit -split '\s*\|\s*', 2)[-1]).Trim())
+            $k = "attempt:$dom|$day"
+            if ($dom -and -not $pornAlerted[$k]) {
+                $streak.Flagged = $true
+                $al = Format-AlertEmail -Kind "PornAttempt" -Detail $dom
+                Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                Write-AgentLog "Instant alert: adult site ATTEMPTED via NextDNS ($dom); witness notified."
+                $pornAlerted[$k] = $true
             }
         }
     }
