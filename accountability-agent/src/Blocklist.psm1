@@ -57,8 +57,13 @@ function Select-PornHits {
         $h = ($h -split '@')[-1]                 # strip userinfo
         $h = (($h -split ':')[0]).ToLower() -replace '^www\.', ''   # strip port + leading www
         if (-not $h) { continue }
-        foreach ($d in $bare.Keys) {
-            if ($h -eq $d -or $h.EndsWith(".$d")) { $hits += $line; break }
+        # Check the host and each parent suffix against the set (O(labels) per host, ~2-4 lookups),
+        # NOT a scan of all 20k+ domains per URL (which would peg the enforcer every poll).
+        # e.g. m.xvideos.com -> try "m.xvideos.com" then "xvideos.com" (stops before the bare TLD,
+        # so 'notporn.com' never matches on 'com').
+        $labels = $h -split '\.'
+        for ($i = 0; $i -lt $labels.Count - 1; $i++) {
+            if ($bare.ContainsKey(($labels[$i..($labels.Count - 1)] -join '.'))) { $hits += $line; break }
         }
     }
     return $hits
@@ -68,7 +73,10 @@ function ConvertFrom-HostsList {
     # Parse hosts-format ("0.0.0.0 domain" / "127.0.0.1 domain") or plain-domain text
     # into a unique, lower-cased domain list. Skips comments, blank lines, IPs, and localhost.
     param([string]$Text)
-    $out = @()
+    # List.Add (O(1) amortized), NOT $out += (which reallocates the whole array each time = O(n^2)
+    # and takes minutes on a 60k-line list). De-dupe via a HashSet so the whole parse is O(n).
+    $seen = New-Object System.Collections.Generic.HashSet[string]
+    $out  = New-Object System.Collections.Generic.List[string]
     foreach ($line in ($Text -split "`r?`n")) {
         $l = $line.Trim()
         if (-not $l -or $l.StartsWith("#")) { continue }
@@ -77,9 +85,9 @@ function ConvertFrom-HostsList {
         if (-not $domain) { continue }
         $domain = $domain.ToLower()
         if ($domain -eq "localhost" -or $domain -match '^[0-9.]+$') { continue }
-        $out += $domain
+        if ($seen.Add($domain)) { $out.Add($domain) }
     }
-    return ($out | Select-Object -Unique)
+    return $out
 }
 
 function Update-PornBlocklist {
@@ -91,14 +99,26 @@ function Update-PornBlocklist {
         [string]$Url,
         [Parameter(Mandatory)][string]$CachePath,
         [int]$MaxAgeHours = 24,
-        [int]$MaxDomains = 20000
+        [int]$MaxDomains = 20000,
+        [int]$FallbackRetryMinutes = 30
     )
+    # A ".fallback" sidecar marks that the cache is only the tiny built-in list (a download failed).
+    # While in that state we retry the URL every FallbackRetryMinutes instead of waiting the full
+    # MaxAgeHours, so a transient boot-time failure (VPN/DNS still connecting) self-heals in minutes
+    # rather than sticking on ~100 domains for a day.
+    $fallbackMark = "$CachePath.fallback"
+    $onFallback = Test-Path $fallbackMark
     $stale = (-not (Test-Path $CachePath)) -or `
              (((Get-Date) - (Get-Item $CachePath).LastWriteTime).TotalHours -gt $MaxAgeHours)
+    if (-not $stale -and $onFallback -and $Url -and `
+        (((Get-Date) - (Get-Item $fallbackMark).LastWriteTime).TotalMinutes -gt $FallbackRetryMinutes)) {
+        $stale = $true
+    }
     if (-not $stale) { return $false }
 
     if ([string]::IsNullOrWhiteSpace($Url)) {
         Set-Content -Path $CachePath -Value $script:BuiltInPornDomains -Encoding ASCII
+        Remove-Item $fallbackMark -ErrorAction SilentlyContinue   # built-in is the chosen list here, not a fallback
         return $true
     }
     try {
@@ -107,13 +127,15 @@ function Update-PornBlocklist {
         if ($domains.Count -gt $MaxDomains) { $domains = $domains[0..($MaxDomains - 1)] }
         if ($domains.Count -gt 0) {
             Set-Content -Path $CachePath -Value $domains -Encoding ASCII
+            Remove-Item $fallbackMark -ErrorAction SilentlyContinue   # got the real list; clear fallback state
             return $true
         }
     } catch { }
-    # Download failed (or returned nothing). If a cache already exists, keep it. If not, seed the
-    # built-in curated list so a bad/unreachable URL never leaves porn totally uncovered on first run.
-    if (-not (Test-Path $CachePath)) {
+    # Download failed. Keep an existing REAL cache untouched. Only seed the built-in when we have
+    # nothing yet, or we were already on the fallback (re-stamp the marker so the retry clock resets).
+    if (-not (Test-Path $CachePath) -or $onFallback) {
         Set-Content -Path $CachePath -Value $script:BuiltInPornDomains -Encoding ASCII
+        Set-Content -Path $fallbackMark -Value (Get-Date -Format o) -Encoding ASCII
         return $true
     }
     return $false
