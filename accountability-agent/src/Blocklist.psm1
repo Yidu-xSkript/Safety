@@ -25,6 +25,45 @@ $script:BuiltInPornDomains = @(
 
 function Get-BuiltInPornDomains { return $script:BuiltInPornDomains }
 
+function Get-TorBlockDomains {
+    # Static: friction the Tor Browser DOWNLOAD at the hosts level (belt-and-suspenders with the
+    # Stop-TorBrowser process kill). Covers the main site + the dist/mirror hosts the installer and
+    # in-app updater pull from. NOT exhaustive by design — bridges/mirrors/GitHub releases still
+    # exist (friction, not lock); the process kill is the real backstop.
+    return @(
+        'torproject.org','www.torproject.org','dist.torproject.org','archive.torproject.org',
+        'blog.torproject.org','support.torproject.org','gitlab.torproject.org','forum.torproject.org',
+        'torproject.net','www.torproject.net','getfoxyproxy.org','tor.eff.org'
+    )
+}
+
+function Select-PornHits {
+    # From "<timestamp> | <url>" browser-history lines, return the lines whose HOST matches a
+    # blocked porn domain (exact host or a subdomain of it). Host-suffix match on the parsed
+    # hostname, so 'notporn.com' does NOT match 'porn.com'. Pure -> unit-testable. Drives the
+    # instant witness alert (a porn URL in history means it was actually loaded, even through a VPN
+    # or on a brand-new domain the hosts/NextDNS block missed).
+    param([string[]]$Lines = @(), [string[]]$Domains = @())
+    if (-not $Domains -or @($Domains).Count -eq 0) { return @() }
+    $bare = @{}
+    foreach ($d in $Domains) { $x = ($d.Trim().ToLower() -replace '^www\.', ''); if ($x) { $bare[$x] = $true } }
+    $hits = @()
+    foreach ($line in $Lines) {
+        if (-not $line) { continue }
+        $url = ((($line -split '\s*\|\s*', 2)[-1]).Trim())
+        if (-not $url) { continue }
+        $h = $url -replace '^[a-z]+://', ''      # strip scheme
+        $h = ($h -split '[/?#]', 2)[0]           # strip path/query/fragment
+        $h = ($h -split '@')[-1]                 # strip userinfo
+        $h = (($h -split ':')[0]).ToLower() -replace '^www\.', ''   # strip port + leading www
+        if (-not $h) { continue }
+        foreach ($d in $bare.Keys) {
+            if ($h -eq $d -or $h.EndsWith(".$d")) { $hits += $line; break }
+        }
+    }
+    return $hits
+}
+
 function ConvertFrom-HostsList {
     # Parse hosts-format ("0.0.0.0 domain" / "127.0.0.1 domain") or plain-domain text
     # into a unique, lower-cased domain list. Skips comments, blank lines, IPs, and localhost.
@@ -71,6 +110,12 @@ function Update-PornBlocklist {
             return $true
         }
     } catch { }
+    # Download failed (or returned nothing). If a cache already exists, keep it. If not, seed the
+    # built-in curated list so a bad/unreachable URL never leaves porn totally uncovered on first run.
+    if (-not (Test-Path $CachePath)) {
+        Set-Content -Path $CachePath -Value $script:BuiltInPornDomains -Encoding ASCII
+        return $true
+    }
     return $false
 }
 
@@ -106,4 +151,4 @@ function Get-SafeSearchRedirects {
     return $map
 }
 
-Export-ModuleMember -Function ConvertFrom-HostsList, Update-PornBlocklist, Get-PornBlocklist, Get-BuiltInPornDomains, Get-SafeSearchTargets, Get-SafeSearchRedirects
+Export-ModuleMember -Function ConvertFrom-HostsList, Update-PornBlocklist, Get-PornBlocklist, Get-BuiltInPornDomains, Get-TorBlockDomains, Select-PornHits, Get-SafeSearchTargets, Get-SafeSearchRedirects

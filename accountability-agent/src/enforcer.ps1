@@ -19,6 +19,7 @@ $staleSince = $null      # when the monitor heartbeat first went stale (for self
 $tamperNotified = $false
 $timeBoxAlerted = @{}   # "app|yyyyMMdd" -> $true, so each over-limit app alerts the witness once per day
 $tamperAlerted  = @{}   # "kind|yyyyMMdd" -> $true, so each tamper kind alerts the witness once per day
+$pornAlerted    = @{}   # "url|yyyyMMdd" -> $true, so each adult URL fires one instant alert per day (no spam on repeat visits)
 $firstLoop      = $true # suppress alerts on the initial DNS/hosts application (that's setup, not tampering)
 $failsafeTripped = $false # true while NextDNS is unreachable and the DNS lock has been backed off
 $configPath = Join-Path $SecretsDir "agent-config.json"
@@ -36,6 +37,9 @@ $pornEnabled = -not ($cfg.pornBlocklistEnabled -eq $false)   # default ON unless
 $safeSearchEnabled = -not ($cfg.safeSearchEnabled -eq $false)   # force SafeSearch (Google/Bing/DDG); default ON
 $dohFwEnabled = ($cfg.dohFirewallEnabled -eq $true)   # aggressive DNS firewall block; OFF by default (can break VPNs)
 $dnsMgmtEnabled = -not ($cfg.dnsManagementEnabled -eq $false)   # let the agent manage OS DNS; set false when the NextDNS app (DoH) handles DNS
+$incognitoDisableEnabled = -not ($cfg.incognitoDisableEnabled -eq $false)   # kill browser incognito/private mode; default ON
+$torBlockEnabled = -not ($cfg.torBlockEnabled -eq $false)   # detect + close Tor Browser (bypasses NextDNS); default ON
+$instantPornAlertEnabled = -not ($cfg.instantPornAlertEnabled -eq $false)   # email witness the moment a porn URL is seen; default ON
 $expectedHostsHash = ""     # hash of the hosts file after our last write, for cheap tamper detection
 $desired = $null            # cached desired domain set (app-policy + porn); recomputed only on change
 $safeRedirects = @{}        # cached SafeSearch host->IP redirects; recomputed with $desired
@@ -63,6 +67,41 @@ while ($true) {
     $day = Get-Date -Format "yyyyMMdd"
     # Roll the clean-day streak forward if the calendar day changed.
     $streak = Update-DayState -State $streak -Today $day
+
+    # --- Disable browser incognito/private mode. Pre-seeds enterprise policies so even a
+    # not-yet-installed browser honors it on first launch, restoring history-reader visibility.
+    # Idempotent + SYSTEM-written each loop, so a deleted key self-heals. ---
+    if ($incognitoDisableEnabled) {
+        $incognitoChanged = Set-IncognitoDisabled
+        # A correction after startup means a browser policy was flipped back on (tamper).
+        if ($incognitoChanged -and -not $firstLoop) {
+            $streak.Flagged = $true
+            $k = "IncognitoTamper|$day"
+            if (-not $tamperAlerted[$k]) {
+                $al = Format-AlertEmail -Kind "IncognitoTamper" -Detail ""
+                Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                Write-AgentLog "Tamper: incognito re-enabled; re-disabled + alerted."
+                $tamperAlerted[$k] = $true
+            }
+        }
+    }
+
+    # --- Close Tor Browser on sight. Tor bypasses NextDNS and the history report entirely, and
+    # ignores the incognito policy, so process-kill is the only lever (friction not lock — bridges/
+    # mirrors remain get-aroundable, but every launch is closed + logged + alerted). ---
+    if ($torBlockEnabled) {
+        $torKilled = Stop-TorBrowser
+        if ($torKilled.Count -gt 0) {
+            $streak.Flagged = $true
+            $k = "TorBlocked|$day"
+            if (-not $tamperAlerted[$k]) {
+                $al = Format-AlertEmail -Kind "TorBlocked" -Detail ($torKilled -join ", ")
+                Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                Write-AgentLog "Tor Browser detected and closed ($($torKilled -join ', ')); witness alerted."
+                $tamperAlerted[$k] = $true
+            }
+        }
+    }
 
     # --- VPN kill-switch (Option A: kill unapproved VPN, keep internet) ---
     $vpn = Get-VpnAdapterState
@@ -162,8 +201,11 @@ while ($true) {
         # porn to NextDNS, so the ATTEMPT is logged and visible to the witness instead of being
         # silently dropped by the hosts file before any query reaches NextDNS.
         $pornDomains = if ($pornEnabled -and $vpnActive) { Get-PornBlocklist -CachePath $pornCache } else { @() }
+        # Tor DOWNLOAD domains are blocked ALWAYS (not VPN-gated like porn): the goal is to friction
+        # the install, not to log a visit. Pairs with the Stop-TorBrowser process kill.
+        $torDomains  = if ($torBlockEnabled) { Get-TorBlockDomains } else { @() }
         $appDomains  = Get-DesiredHostsEntries -Policies $cfg.appPolicies -OverLimitApps $overLimit
-        $desired = @(@($appDomains) + @($pornDomains) | Select-Object -Unique)
+        $desired = @(@($appDomains) + @($pornDomains) + @($torDomains) | Select-Object -Unique)
         $safeRedirects = if ($safeSearchEnabled) { Get-SafeSearchRedirects } else { @{} }
         $lastOverKey = $overKey; $lastPornMtime = $pornMtime; $lastVpnActive = $vpnActive
         $setChanged = $true
@@ -269,6 +311,29 @@ while ($true) {
     } else {
         if ($staleSince) { Write-AgentLog "Monitor heartbeat healthy again." }
         $staleSince = $null; $tamperNotified = $false
+    }
+
+    # --- Instant adult-site alert: scan new browser-history lines each poll and email the witness
+    # the MOMENT a porn URL appears, rather than waiting for the hourly report. Reads the same
+    # history spool the reporter sends (RuntimeDir); dedupe by url|day means the reporter clearing
+    # the file hourly is harmless and a repeat visit to the same URL won't re-spam. ---
+    if ($instantPornAlertEnabled) {
+        $histSpool = Join-Path $RuntimeDir "history-spool.txt"
+        if (Test-Path $histSpool) {
+            $pornList = Get-PornBlocklist -CachePath $pornCache
+            $histLines = @(Get-Content $histSpool -ErrorAction SilentlyContinue)
+            foreach ($hit in @(Select-PornHits -Lines $histLines -Domains $pornList)) {
+                $url = ((($hit -split '\s*\|\s*', 2)[-1]).Trim())
+                $k = "$url|$day"
+                if (-not $pornAlerted[$k]) {
+                    $streak.Flagged = $true
+                    $al = Format-AlertEmail -Kind "PornAccess" -Detail $hit
+                    Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                    Write-AgentLog "Instant alert: adult site accessed ($url); witness notified."
+                    $pornAlerted[$k] = $true
+                }
+            }
+        }
     }
 
     # --- Scheduled report ---

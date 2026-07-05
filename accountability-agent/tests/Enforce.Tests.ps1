@@ -59,3 +59,54 @@ Describe "Set-HostsBlock" {
 
     Remove-Item $tmp -ErrorAction SilentlyContinue
 }
+
+Describe "Set-IncognitoDisabled" {
+    # Target a writable user hive so the test needs no admin and never touches real HKLM policy.
+    $root = "HKCU:\Software\AA-IncognitoTest"
+    Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
+
+    It "writes the disable value (1) for every browser family" {
+        Set-IncognitoDisabled -PolicyRoot $root
+        (Get-ItemProperty "$root\Google\Chrome").IncognitoModeAvailability      | Should Be 1
+        (Get-ItemProperty "$root\Microsoft\Edge").InPrivateModeAvailability      | Should Be 1
+        (Get-ItemProperty "$root\BraveSoftware\Brave").IncognitoModeAvailability | Should Be 1
+        (Get-ItemProperty "$root\Chromium").IncognitoModeAvailability            | Should Be 1
+        (Get-ItemProperty "$root\Mozilla\Firefox").DisablePrivateBrowsing        | Should Be 1
+    }
+    It "returns true when it must fix a key and false when already in sync (drives tamper alert)" {
+        Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
+        (Set-IncognitoDisabled -PolicyRoot $root) | Should Be $true    # first write
+        (Set-IncognitoDisabled -PolicyRoot $root) | Should Be $false   # idempotent, nothing to fix
+        # Simulate a user re-enabling incognito: it must re-disable and report the change.
+        Set-ItemProperty -Path "$root\Google\Chrome" -Name IncognitoModeAvailability -Value 0 -Type DWord
+        (Set-IncognitoDisabled -PolicyRoot $root) | Should Be $true
+        (Get-ItemProperty "$root\Google\Chrome").IncognitoModeAvailability | Should Be 1
+    }
+
+    Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Describe "Select-TorProcess" {
+    It "picks the tor daemon and Tor's firefox, sparing a normal Firefox and other browsers" {
+        $procs = @(
+            [pscustomobject]@{ Name='tor';     Id=1; Path='C:\Users\x\Tor Browser\Browser\TorBrowser\Tor\tor.exe' }
+            [pscustomobject]@{ Name='firefox'; Id=2; Path='C:\Users\x\Tor Browser\Browser\firefox.exe' }
+            [pscustomobject]@{ Name='firefox'; Id=3; Path='C:\Program Files\Mozilla Firefox\firefox.exe' }
+            [pscustomobject]@{ Name='chrome';  Id=4; Path='C:\Program Files\Google\Chrome\Application\chrome.exe' }
+        )
+        $hit = Select-TorProcess -Processes $procs
+        @($hit).Count            | Should Be 2
+        ($hit.Id -contains 1)    | Should Be $true    # tor daemon
+        ($hit.Id -contains 2)    | Should Be $true    # Tor's firefox
+        ($hit.Id -contains 3)    | Should Be $false   # normal Firefox spared
+        ($hit.Id -contains 4)    | Should Be $false   # Chrome untouched
+    }
+    It "spares a firefox with an unreadable (empty) path - only kills what it can confirm is Tor" {
+        $procs = @([pscustomobject]@{ Name='firefox'; Id=5; Path=$null })
+        @(Select-TorProcess -Processes $procs).Count | Should Be 0
+    }
+    It "returns nothing when no Tor process is present" {
+        $procs = @([pscustomobject]@{ Name='chrome'; Id=6; Path='C:\chrome.exe' })
+        @(Select-TorProcess -Processes $procs).Count | Should Be 0
+    }
+}

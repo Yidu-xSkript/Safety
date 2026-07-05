@@ -1,5 +1,38 @@
 Import-Module "$PSScriptRoot/../src/Blocklist.psm1" -Force
 
+Describe "Select-PornHits" {
+    $domains = @('pornhub.com','www.pornhub.com','porn.com','xvideos.com')
+    It "flags a blocked host and its subdomains" {
+        $lines = @(
+            "2026-07-05T10:00:00 | https://www.pornhub.com/view?x=1",
+            "2026-07-05T10:01:00 | http://m.xvideos.com/"
+        )
+        @(Select-PornHits -Lines $lines -Domains $domains).Count | Should Be 2
+    }
+    It "does not match a lookalike domain (notporn.com vs porn.com)" {
+        @(Select-PornHits -Lines @("t | https://notporn.com/") -Domains $domains).Count | Should Be 0
+    }
+    It "matches a bare-domain URL with no scheme" {
+        @(Select-PornHits -Lines @("t | porn.com/gallery") -Domains $domains).Count | Should Be 1
+    }
+    It "ignores clean URLs" {
+        @(Select-PornHits -Lines @("t | https://www.google.com/search?q=cats") -Domains $domains).Count | Should Be 0
+    }
+    It "returns nothing when the domain list is empty" {
+        @(Select-PornHits -Lines @("t | https://pornhub.com/") -Domains @()).Count | Should Be 0
+    }
+}
+
+Describe "Get-TorBlockDomains" {
+    It "includes the main site (bare + www) and the dist host, with no duplicates" {
+        $d = Get-TorBlockDomains
+        ($d -contains "torproject.org")      | Should Be $true
+        ($d -contains "www.torproject.org")  | Should Be $true
+        ($d -contains "dist.torproject.org") | Should Be $true
+        (@($d).Count) | Should Be (@($d | Select-Object -Unique).Count)
+    }
+}
+
 Describe "ConvertFrom-HostsList" {
     It "extracts domains from hosts-format lines" {
         $t = "0.0.0.0 pornhub.com`n127.0.0.1 xvideos.com"
@@ -40,6 +73,14 @@ Describe "Update-PornBlocklist (built-in, no network)" {
         $tmp = Join-Path $env:TEMP "porn-fresh-test.txt"
         Update-PornBlocklist -Url "" -CachePath $tmp -MaxAgeHours 24 | Out-Null
         (Update-PornBlocklist -Url "" -CachePath $tmp -MaxAgeHours 24) | Should Be $false
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+    }
+    It "falls back to the built-in list when a bad URL fails and no cache exists" {
+        $tmp = Join-Path $env:TEMP "porn-badurl-test.txt"
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+        # Unresolvable host -> download throws -> must seed the built-in list rather than leave it empty.
+        (Update-PornBlocklist -Url "https://no-such-host.invalid/list" -CachePath $tmp -MaxAgeHours 24) | Should Be $true
+        (@(Get-PornBlocklist -CachePath $tmp) -contains "pornhub.com") | Should Be $true
         Remove-Item $tmp -ErrorAction SilentlyContinue
     }
 }

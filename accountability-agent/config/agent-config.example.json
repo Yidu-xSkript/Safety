@@ -9,7 +9,7 @@
   "heartbeatStaleSeconds": 180,
   "vpnPollSeconds": 5,
   "pornBlocklistEnabled": true,
-  "pornBlocklistUrl": null,
+  "pornBlocklistUrl": "https://raw.githubusercontent.com/Sinfonietta/hostfiles/master/pornography-hosts",
   "pornBlocklistMaxDomains": 20000,
   "safeSearchEnabled": true,
   "dohFirewallEnabled": false,

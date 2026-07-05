@@ -89,6 +89,62 @@ function Disable-VpnAdapter {
     }
 }
 
+function Set-IncognitoDisabled {
+    # Pre-seed browser enterprise policies so private/incognito browsing is unavailable —
+    # including for browsers not yet installed, which read their policy key on first launch.
+    # This restores the history reader's visibility (incognito never wrote to history; it was
+    # never hidden from NextDNS). Value 1 = incognito DISABLED. NOT 2, which would FORCE
+    # incognito and hide history — the opposite of what we want.
+    # Idempotent, and rewritten every loop by SYSTEM, so a user deleting a key just gets it
+    # back (friction, not lock — the protected user is a local admin).
+    # $PolicyRoot is overridable so tests can target a writable hive instead of HKLM.
+    # Returns $true if any key was missing/wrong and had to be (re)written — the caller treats a
+    # post-startup correction as tampering (a user turning incognito back on).
+    param([string]$PolicyRoot = "HKLM:\SOFTWARE\Policies")
+    # vendor subkey -> value name. Chromium forks (Vivaldi and most others) honor the Chromium key.
+    $browsers = @(
+        @{ Key = "Google\Chrome";       Name = "IncognitoModeAvailability" }   # Chrome
+        @{ Key = "Microsoft\Edge";      Name = "InPrivateModeAvailability" }   # Edge
+        @{ Key = "BraveSoftware\Brave"; Name = "IncognitoModeAvailability" }   # Brave
+        @{ Key = "Chromium";            Name = "IncognitoModeAvailability" }   # Chromium & forks
+        @{ Key = "Mozilla\Firefox";     Name = "DisablePrivateBrowsing" }      # Firefox
+    )
+    $changed = $false
+    foreach ($b in $browsers) {
+        $path = Join-Path $PolicyRoot $b.Key
+        if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
+        $cur = (Get-ItemProperty -Path $path -Name $b.Name -ErrorAction SilentlyContinue).($b.Name)
+        if ($cur -ne 1) {
+            Set-ItemProperty -Path $path -Name $b.Name -Value 1 -Type DWord
+            $changed = $true
+        }
+    }
+    return $changed
+}
+
+function Select-TorProcess {
+    # Pure selection (no side effects, injectable list -> unit-testable without killing anything):
+    # pick Tor's processes = the tor.exe daemon (a normal browser never spawns one) OR a firefox.exe
+    # whose path is inside a "Tor Browser" folder — so a normal standalone Firefox is left alone.
+    # A firefox with an unreadable path (empty) won't match, so we only kill firefox we can confirm.
+    param([Parameter(Mandatory)]$Processes)
+    return @($Processes | Where-Object {
+        $_.Name -eq 'tor' -or ($_.Name -eq 'firefox' -and "$($_.Path)" -match 'Tor Browser')
+    })
+}
+
+function Stop-TorBrowser {
+    # Close Tor Browser when detected. Tor bypasses NextDNS (its DNS runs through the circuit) AND
+    # ignores the incognito policy (it is permanently private), so neither logging nor policy can
+    # touch it — killing the process is the only lever. Runs as SYSTEM so it can end user processes.
+    # ponytail: poll-interval detection lag (Tor can be open up to one loop before it's killed); the
+    # monitor's window-title capture still records that Tor was opened, so the attempt isn't invisible.
+    # Returns the unique process names it stopped (for the witness alert), empty array if none.
+    $tor = Select-TorProcess -Processes (Get-Process -ErrorAction SilentlyContinue)
+    foreach ($p in $tor) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+    return @($tor | ForEach-Object { $_.Name } | Select-Object -Unique | Sort-Object)
+}
+
 function Set-HostsBlock {
     # Idempotently maintain a managed block section in the hosts file.
     # $Domains   -> "127.0.0.1 <domain>" block entries.
@@ -122,4 +178,4 @@ function Set-HostsBlock {
     return $false
 }
 
-Export-ModuleMember -Function Set-NextDnsLock, Set-DohFirewallBlock, Disable-VpnAdapter, Set-HostsBlock, Test-NextDnsReachable, Remove-DohFirewallBlock, Reset-DnsToAuto
+Export-ModuleMember -Function Set-NextDnsLock, Set-DohFirewallBlock, Disable-VpnAdapter, Set-HostsBlock, Set-IncognitoDisabled, Select-TorProcess, Stop-TorBrowser, Test-NextDnsReachable, Remove-DohFirewallBlock, Reset-DnsToAuto

@@ -18,7 +18,8 @@ if (Test-Path $histSpool) { $history = Get-Content -Path $histSpool }
 $since = (Get-Date).AddMinutes((-1 * [int]$cfg.reportIntervalMinutes)).ToString("s")
 $body  = Format-WitnessReport -Samples $samples -Since $since
 if ($history.Count -gt 0) {
-    $body += "`n`n--- Browser history ($($history.Count) URLs, incl. search queries; non-incognito, VPN-proof) ---`n" + ($history -join "`n")
+    $distinctUrls = @(@($history | ForEach-Object { (($_ -split '\s*\|\s*', 2)[-1]).Trim() } | Where-Object { $_ }) | Select-Object -Unique).Count
+    $body += "`n`n--- Browser history ($distinctUrls distinct URLs, incl. search queries; non-incognito, VPN-proof) ---`n" + (Group-ActivitySamples -Lines $history)
 }
 
 Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail `
