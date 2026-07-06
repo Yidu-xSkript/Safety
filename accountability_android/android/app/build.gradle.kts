@@ -38,6 +38,13 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // R8 obfuscation/shrinking breaks JavaMail (com.sun.mail) — it renames the transport
+            // classes and drops the reflection-loaded providers, so email fails in RELEASE only with
+            // a bare "smtp"/NoSuchProvider error. Keep it off so alerting works in release too.
+            // (If shrinking is ever wanted, keep it on with ProGuard -keep rules for com.sun.mail.**,
+            //  javax.mail.**, javax.activation.** instead of disabling.)
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 
