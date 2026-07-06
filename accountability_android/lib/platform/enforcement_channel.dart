@@ -16,4 +16,11 @@ class EnforcementChannel {
   Future<void> requestAdmin() => _c.invokeMethod('requestAdmin');
   Future<void> release() => _c.invokeMethod('release');
   Future<void> alertReleaseAttempt() => _c.invokeMethod('alertReleaseAttempt');
+
+  // Real protection state: { 'vpn', 'admin', 'watchdog' } → each true only if actually on.
+  Future<Map<String, bool>> status() async {
+    final r = await _c.invokeMethod('status');
+    final m = Map<String, dynamic>.from(r as Map);
+    return m.map((k, v) => MapEntry(k, v == true));
+  }
 }

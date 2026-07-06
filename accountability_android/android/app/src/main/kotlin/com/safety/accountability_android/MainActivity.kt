@@ -7,8 +7,11 @@ import android.content.Intent
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import com.safety.accountability.AccountabilityVpnService
 import com.safety.accountability.AdminReceiver
+import com.safety.accountability.AdminState
 import com.safety.accountability.AlertKind
 import com.safety.accountability.Alerts
 import com.safety.accountability.EmailReporter
@@ -67,6 +70,12 @@ class MainActivity : FlutterActivity() {
                         Alerts.notifyAsync(this, AlertKind.RELEASE_ATTEMPT, "")
                         result.success(true)
                     }
+                    "status" -> {   // REAL protection state so the status screen can't show a false "active" (#12)
+                        result.success(mapOf(
+                            "vpn" to isVpnActive(),
+                            "admin" to AdminState.isActive(this),
+                            "watchdog" to isWatchdogScheduled()))
+                    }
                     "release" -> {
                         // Authorized release: flag it FIRST so onDisabled/watchdog don't fire false
                         // tamper alerts or re-arm the VPN, and cancel the watchdog before teardown (#6).
@@ -86,6 +95,21 @@ class MainActivity : FlutterActivity() {
         startForegroundService(Intent(this, AccountabilityVpnService::class.java)
             .putExtra("dohUrl", EnforcementState.dohUrl))
     }
+
+    // Is a VPN transport actually up? We hold the single VPN slot, so a live VPN transport is ours.
+    private fun isVpnActive(): Boolean {
+        val cm = getSystemService(ConnectivityManager::class.java)
+        for (n in cm.allNetworks) {
+            val caps = cm.getNetworkCapabilities(n) ?: continue
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return true
+        }
+        return false
+    }
+
+    private fun isWatchdogScheduled(): Boolean = try {
+        WorkManager.getInstance(this).getWorkInfosForUniqueWork("watchdog").get()
+            .any { !it.state.isFinished }
+    } catch (e: Exception) { false }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
