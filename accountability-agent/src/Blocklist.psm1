@@ -57,18 +57,58 @@ function Select-PornHits {
         $h = ($h -split '@')[-1]                 # strip userinfo
         $h = (($h -split ':')[0]).ToLower() -replace '^www\.', ''   # strip port + leading www
         if (-not $h) { continue }
-        foreach ($d in $bare.Keys) {
-            if ($h -eq $d -or $h.EndsWith(".$d")) { $hits += $line; break }
+        # Check the host and each parent suffix against the set (O(labels) per host, ~2-4 lookups),
+        # NOT a scan of all 20k+ domains per URL (which would peg the enforcer every poll).
+        # e.g. m.xvideos.com -> try "m.xvideos.com" then "xvideos.com" (stops before the bare TLD,
+        # so 'notporn.com' never matches on 'com').
+        $labels = $h -split '\.'
+        for ($i = 0; $i -lt $labels.Count - 1; $i++) {
+            if ($bare.ContainsKey(($labels[$i..($labels.Count - 1)] -join '.'))) { $hits += $line; break }
         }
     }
     return $hits
+}
+
+function ConvertFrom-NextDnsLog {
+    # Parse the NextDNS logs API JSON ({ "data": [ { timestamp, domain, status }, ... ] }) into
+    # "<timestamp> | <domain>" lines — the same shape Select-PornHits consumes, so porn-ATTEMPT
+    # detection reuses the existing matcher. Pure -> unit-testable with a captured JSON sample.
+    param([Parameter(Mandatory)][string]$Json)
+    $out = New-Object System.Collections.Generic.List[string]
+    $obj = try { $Json | ConvertFrom-Json } catch { $null }
+    foreach ($e in @($obj.data)) {
+        if ($e.domain) { $out.Add(("{0} | {1}" -f "$($e.timestamp)", $e.domain)) }
+    }
+    return $out
+}
+
+function Get-NextDnsPornAttempts {
+    # Fetch recent NextDNS query logs and return the porn-list matches as "<timestamp> | <domain>"
+    # lines. NextDNS logs EVERY DNS query, so this catches ATTEMPTS the browser-history reader cannot
+    # (a blocked site never loads, so it never appears in history) — the "email me when they TRY,
+    # blocked or not" path. Fails quiet (returns @()) on any network/API error so it never breaks the
+    # enforcer loop. NextDNS is blind while a VPN tunnels DNS elsewhere; the history alert covers that.
+    param(
+        [Parameter(Mandatory)][string]$ApiKey,
+        [Parameter(Mandatory)][string]$ProfileId,
+        [string[]]$Domains = @(),
+        [int]$Limit = 100
+    )
+    try {
+        $uri  = "https://api.nextdns.io/profiles/$ProfileId/logs?limit=$Limit"
+        $resp = Invoke-WebRequest -Uri $uri -Headers @{ "X-Api-Key" = $ApiKey } -UseBasicParsing -TimeoutSec 20
+        return Select-PornHits -Lines (ConvertFrom-NextDnsLog -Json $resp.Content) -Domains $Domains
+    } catch { return @() }
 }
 
 function ConvertFrom-HostsList {
     # Parse hosts-format ("0.0.0.0 domain" / "127.0.0.1 domain") or plain-domain text
     # into a unique, lower-cased domain list. Skips comments, blank lines, IPs, and localhost.
     param([string]$Text)
-    $out = @()
+    # List.Add (O(1) amortized), NOT $out += (which reallocates the whole array each time = O(n^2)
+    # and takes minutes on a 60k-line list). De-dupe via a HashSet so the whole parse is O(n).
+    $seen = New-Object System.Collections.Generic.HashSet[string]
+    $out  = New-Object System.Collections.Generic.List[string]
     foreach ($line in ($Text -split "`r?`n")) {
         $l = $line.Trim()
         if (-not $l -or $l.StartsWith("#")) { continue }
@@ -77,9 +117,27 @@ function ConvertFrom-HostsList {
         if (-not $domain) { continue }
         $domain = $domain.ToLower()
         if ($domain -eq "localhost" -or $domain -match '^[0-9.]+$') { continue }
-        $out += $domain
+        if ($seen.Add($domain)) { $out.Add($domain) }
     }
-    return ($out | Select-Object -Unique)
+    return $out
+}
+
+function Merge-PornDomains {
+    # Put the curated built-in top-list at the FRONT of a (large) downloaded list, dedupe preserving
+    # order, then cap to MaxDomains. This guarantees the most popular sites (pornhub.com, xvideos.com,
+    # xhamster.com, ...) are always present: the Sinfonietta list is ~61k and roughly alphabetical, so
+    # a naive "first 20000" cut silently drops everything from 'p' onward — including pornhub.com,
+    # while junk like '2pornhub.com' (sorts under '2') survives. Built-ins first fixes that. Pure.
+    param([string[]]$Downloaded = @(), [int]$MaxDomains = 20000)
+    $seen = New-Object System.Collections.Generic.HashSet[string]
+    $out  = New-Object System.Collections.Generic.List[string]
+    foreach ($d in (@($script:BuiltInPornDomains) + @($Downloaded))) {
+        if (-not $d) { continue }
+        $dl = "$d".ToLower()
+        if ($seen.Add($dl)) { $out.Add($dl) }
+        if ($out.Count -ge $MaxDomains) { break }
+    }
+    return $out
 }
 
 function Update-PornBlocklist {
@@ -91,29 +149,44 @@ function Update-PornBlocklist {
         [string]$Url,
         [Parameter(Mandatory)][string]$CachePath,
         [int]$MaxAgeHours = 24,
-        [int]$MaxDomains = 20000
+        [int]$MaxDomains = 20000,
+        [int]$FallbackRetryMinutes = 30
     )
+    # A ".fallback" sidecar marks that the cache is only the tiny built-in list (a download failed).
+    # While in that state we retry the URL every FallbackRetryMinutes instead of waiting the full
+    # MaxAgeHours, so a transient boot-time failure (VPN/DNS still connecting) self-heals in minutes
+    # rather than sticking on ~100 domains for a day.
+    $fallbackMark = "$CachePath.fallback"
+    $onFallback = Test-Path $fallbackMark
     $stale = (-not (Test-Path $CachePath)) -or `
              (((Get-Date) - (Get-Item $CachePath).LastWriteTime).TotalHours -gt $MaxAgeHours)
+    if (-not $stale -and $onFallback -and $Url -and `
+        (((Get-Date) - (Get-Item $fallbackMark).LastWriteTime).TotalMinutes -gt $FallbackRetryMinutes)) {
+        $stale = $true
+    }
     if (-not $stale) { return $false }
 
     if ([string]::IsNullOrWhiteSpace($Url)) {
         Set-Content -Path $CachePath -Value $script:BuiltInPornDomains -Encoding ASCII
+        Remove-Item $fallbackMark -ErrorAction SilentlyContinue   # built-in is the chosen list here, not a fallback
         return $true
     }
     try {
         $resp = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 60
-        $domains = ConvertFrom-HostsList -Text $resp.Content
-        if ($domains.Count -gt $MaxDomains) { $domains = $domains[0..($MaxDomains - 1)] }
+        $parsed = ConvertFrom-HostsList -Text $resp.Content
+        # Merge the curated top-list in FRONT so popular sites survive the MaxDomains cap.
+        $domains = Merge-PornDomains -Downloaded $parsed -MaxDomains $MaxDomains
         if ($domains.Count -gt 0) {
             Set-Content -Path $CachePath -Value $domains -Encoding ASCII
+            Remove-Item $fallbackMark -ErrorAction SilentlyContinue   # got the real list; clear fallback state
             return $true
         }
     } catch { }
-    # Download failed (or returned nothing). If a cache already exists, keep it. If not, seed the
-    # built-in curated list so a bad/unreachable URL never leaves porn totally uncovered on first run.
-    if (-not (Test-Path $CachePath)) {
+    # Download failed. Keep an existing REAL cache untouched. Only seed the built-in when we have
+    # nothing yet, or we were already on the fallback (re-stamp the marker so the retry clock resets).
+    if (-not (Test-Path $CachePath) -or $onFallback) {
         Set-Content -Path $CachePath -Value $script:BuiltInPornDomains -Encoding ASCII
+        Set-Content -Path $fallbackMark -Value (Get-Date -Format o) -Encoding ASCII
         return $true
     }
     return $false
@@ -151,4 +224,4 @@ function Get-SafeSearchRedirects {
     return $map
 }
 
-Export-ModuleMember -Function ConvertFrom-HostsList, Update-PornBlocklist, Get-PornBlocklist, Get-BuiltInPornDomains, Get-TorBlockDomains, Select-PornHits, Get-SafeSearchTargets, Get-SafeSearchRedirects
+Export-ModuleMember -Function ConvertFrom-HostsList, Merge-PornDomains, Update-PornBlocklist, Get-PornBlocklist, Get-BuiltInPornDomains, Get-TorBlockDomains, Select-PornHits, ConvertFrom-NextDnsLog, Get-NextDnsPornAttempts, Get-SafeSearchTargets, Get-SafeSearchRedirects

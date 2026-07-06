@@ -7,6 +7,44 @@ param(
     [string]$UninstallPassword                  # optional: witness sets this to gate uninstall.ps1
 )
 
+# --- REINSTALL GATE. If the agent is already installed WITH an uninstall password, require that
+# password before we touch anything. Otherwise the protected user could simply re-run the installer
+# to reset the password / re-register the agent, defeating the witness's control. Wrong password =>
+# abort before any change, and notify the witness (same as a wrong-password uninstall attempt). ---
+$existingHashFile = Join-Path $SecretsDir "uninstall.hash"
+if (Test-Path $existingHashFile) {
+    Import-Module "$SrcDir/Common.psm1" -Force
+    $storedHash = (Get-Content $existingHashFile -Raw).Trim()
+    $curSec = Read-Host "Agent already installed. Enter the CURRENT uninstall password to reinstall" -AsSecureString
+    $curPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($curSec))
+    if (-not (Test-PasswordHash -Password $curPlain -Stored $storedHash)) {
+        Write-Host "Wrong password. Reinstall aborted (nothing was changed)." -ForegroundColor Red
+        try {   # best-effort witness alert about the attempt, using the currently-installed config
+            Import-Module "$SrcDir/Report.psm1" -Force -ErrorAction SilentlyContinue
+            $cfg0 = Get-AgentConfig -Path (Join-Path $SecretsDir "agent-config.json")
+            $a0 = Format-AlertEmail -Kind "UninstallAttempt" -Detail "reinstall attempted with a wrong uninstall password"
+            Send-WitnessEmail -Smtp $cfg0.smtp -To $cfg0.witnessEmail -Subject $a0.Subject -Body $a0.Body
+        } catch { }
+        exit 1
+    }
+    Write-Host "Uninstall password verified. Continuing reinstall." -ForegroundColor Green
+}
+
+# --- Stop any PREVIOUS instances first. Re-registering the task with -Force orphans a running
+# enforcer/monitor process (it keeps looping the old code), so without this a reinstall leaves
+# multiple enforcers all rewriting the hosts file every few seconds — they lock each other out
+# ("hosts is being used by another process") and each orphan re-sends witness alerts. Kill them,
+# then let the file handles release before we re-register. ---
+foreach ($t in 'AccountabilityEnforcer','AccountabilityMonitor') {
+    Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
+}
+foreach ($t in 'AccountabilitySinkhole') { Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue }
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='wscript.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'enforcer\.ps1|monitor\.ps1|sinkhole\.ps1|run-monitor-hidden\.vbs' } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Start-Sleep -Seconds 1   # let the hosts-file handle from any killed enforcer release
+
 # --- Secrets dir: admin-only. Holds the config with the SMTP app password. ---
 New-Item -ItemType Directory -Path $SecretsDir -Force | Out-Null
 Copy-Item $ConfigPath (Join-Path $SecretsDir "agent-config.json") -Force
@@ -58,7 +96,7 @@ icacls $installSrc /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(O
 $enfAction  = New-ScheduledTaskAction -Execute "powershell.exe" `
     -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$installSrc\enforcer.ps1`" -SecretsDir `"$SecretsDir`" -RuntimeDir `"$RuntimeDir`""
 $enfTrigger = New-ScheduledTaskTrigger -AtStartup
-$enfSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+$enfSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 Register-ScheduledTask -TaskName "AccountabilityEnforcer" -Action $enfAction -Trigger $enfTrigger `
     -Settings $enfSet -User "SYSTEM" -RunLevel Highest -Force
 
@@ -66,13 +104,22 @@ Register-ScheduledTask -TaskName "AccountabilityEnforcer" -Action $enfAction -Tr
 # Launched via the hidden VBScript wrapper so no console window ever appears.
 $monAction  = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$hiddenVbs`""
 $monTrigger = New-ScheduledTaskTrigger -AtLogOn
-$monSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+$monSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 Register-ScheduledTask -TaskName "AccountabilityMonitor" -Action $monAction -Trigger $monTrigger `
     -Settings $monSet -RunLevel Limited -Force
+
+# Sinkhole: runs as SYSTEM at boot (binds loopback :443/:80 to log blocked-domain attempts, VPN-proof).
+$sinkAction  = New-ScheduledTaskAction -Execute "powershell.exe" `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$installSrc\sinkhole.ps1`" -RuntimeDir `"$RuntimeDir`""
+$sinkTrigger = New-ScheduledTaskTrigger -AtStartup
+$sinkSet     = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName "AccountabilitySinkhole" -Action $sinkAction -Trigger $sinkTrigger `
+    -Settings $sinkSet -User "SYSTEM" -RunLevel Highest -Force
 
 # Start both now so protection is active immediately (don't wait for a reboot/logon).
 Start-ScheduledTask -TaskName "AccountabilityEnforcer" -ErrorAction SilentlyContinue
 Start-ScheduledTask -TaskName "AccountabilityMonitor"  -ErrorAction SilentlyContinue
+Start-ScheduledTask -TaskName "AccountabilitySinkhole" -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 Write-Host "Installed and started. Current state:"
 Get-ScheduledTask -TaskName Accountability* | Select-Object TaskName, State | Format-Table -AutoSize

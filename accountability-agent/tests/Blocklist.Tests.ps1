@@ -23,6 +23,40 @@ Describe "Select-PornHits" {
     }
 }
 
+Describe "ConvertFrom-NextDnsLog" {
+    It "extracts '<timestamp> | <domain>' lines from the NextDNS logs API JSON" {
+        $json = '{"data":[{"timestamp":"2026-07-05T15:00:00.000Z","domain":"pornhub.com","status":"blocked"},{"timestamp":"2026-07-05T15:01:00.000Z","domain":"google.com","status":"default"}]}'
+        $lines = @(ConvertFrom-NextDnsLog -Json $json)
+        $lines.Count | Should Be 2
+        ($lines[0]) | Should Match "\| pornhub\.com$"
+    }
+    It "feeds Select-PornHits so a blocked porn query is caught but a clean one is not" {
+        $json = '{"data":[{"timestamp":"t","domain":"www.xhamster.com"},{"timestamp":"t","domain":"wikipedia.org"}]}'
+        $hits = @(Select-PornHits -Lines (ConvertFrom-NextDnsLog -Json $json) -Domains @("xhamster.com"))
+        $hits.Count | Should Be 1
+        $hits[0] | Should Match "xhamster"
+    }
+    It "returns nothing on malformed JSON (fail-quiet)" {
+        @(ConvertFrom-NextDnsLog -Json "not json").Count | Should Be 0
+    }
+}
+
+Describe "Merge-PornDomains" {
+    It "always includes the curated top sites even when the download omits them (the pornhub bug)" {
+        $downloaded = @("2pornhub.com", "somelongtail.xxx")   # note: NO plain pornhub.com
+        $m = Merge-PornDomains -Downloaded $downloaded -MaxDomains 20000
+        ($m -contains "pornhub.com")  | Should Be $true   # from built-ins, not the download
+        ($m -contains "xvideos.com")  | Should Be $true
+        ($m -contains "2pornhub.com") | Should Be $true   # long-tail from the download still present
+    }
+    It "caps to MaxDomains with the built-in top sites kept first" {
+        $downloaded = 1..50 | ForEach-Object { "tail$_.example" }
+        $m = Merge-PornDomains -Downloaded $downloaded -MaxDomains 10
+        @($m).Count | Should Be 10
+        ($m -contains "pornhub.com") | Should Be $true   # a top built-in survives the tight cap
+    }
+}
+
 Describe "Get-TorBlockDomains" {
     It "includes the main site (bare + www) and the dist host, with no duplicates" {
         $d = Get-TorBlockDomains
@@ -77,11 +111,22 @@ Describe "Update-PornBlocklist (built-in, no network)" {
     }
     It "falls back to the built-in list when a bad URL fails and no cache exists" {
         $tmp = Join-Path $env:TEMP "porn-badurl-test.txt"
-        Remove-Item $tmp -ErrorAction SilentlyContinue
+        Remove-Item $tmp, "$tmp.fallback" -ErrorAction SilentlyContinue
         # Unresolvable host -> download throws -> must seed the built-in list rather than leave it empty.
         (Update-PornBlocklist -Url "https://no-such-host.invalid/list" -CachePath $tmp -MaxAgeHours 24) | Should Be $true
         (@(Get-PornBlocklist -CachePath $tmp) -contains "pornhub.com") | Should Be $true
-        Remove-Item $tmp -ErrorAction SilentlyContinue
+        (Test-Path "$tmp.fallback") | Should Be $true   # marked as fallback so the URL is retried soon
+        Remove-Item $tmp, "$tmp.fallback" -ErrorAction SilentlyContinue
+    }
+    It "retries the URL soon while on fallback instead of waiting MaxAgeHours" {
+        $tmp = Join-Path $env:TEMP "porn-retry-test.txt"
+        Remove-Item $tmp, "$tmp.fallback" -ErrorAction SilentlyContinue
+        Update-PornBlocklist -Url "https://no-such-host.invalid/list" -CachePath $tmp -MaxAgeHours 24 | Out-Null
+        # Fresh built-in cache but on fallback: with a 0-minute retry window it must attempt again
+        # (returns true = it re-ran) rather than short-circuit on the 24h freshness check.
+        (Update-PornBlocklist -Url "https://no-such-host.invalid/list" -CachePath $tmp -MaxAgeHours 24 -FallbackRetryMinutes 0) | Should Be $true
+        # And a normal (non-fallback) fresh cache is still a no-op.
+        Remove-Item $tmp, "$tmp.fallback" -ErrorAction SilentlyContinue
     }
 }
 

@@ -20,6 +20,17 @@ $tamperNotified = $false
 $timeBoxAlerted = @{}   # "app|yyyyMMdd" -> $true, so each over-limit app alerts the witness once per day
 $tamperAlerted  = @{}   # "kind|yyyyMMdd" -> $true, so each tamper kind alerts the witness once per day
 $pornAlerted    = @{}   # "url|yyyyMMdd" -> $true, so each adult URL fires one instant alert per day (no spam on repeat visits)
+# PERSIST the tamper-alert dedup across restarts. In-memory only, it was re-armed on every enforcer
+# restart (reinstall, dead-man self-heal, crash) — so the witness got the SAME alert re-sent each
+# time (the #1 cause of inbox spam during setup). Load today's already-sent keys so we don't re-fire.
+$alertStateFile = Join-Path $SecretsDir "alert-state.txt"
+$todayInit = Get-Date -Format "yyyyMMdd"
+if (Test-Path $alertStateFile) {
+    foreach ($key in (Get-Content $alertStateFile -ErrorAction SilentlyContinue)) {
+        if ($key -and $key.EndsWith("|$todayInit")) { $tamperAlerted[$key] = $true }
+    }
+}
+$lastAlertKeys = (($tamperAlerted.Keys | Sort-Object) -join "`n")
 $firstLoop      = $true # suppress alerts on the initial DNS/hosts application (that's setup, not tampering)
 $failsafeTripped = $false # true while NextDNS is unreachable and the DNS lock has been backed off
 $configPath = Join-Path $SecretsDir "agent-config.json"
@@ -27,6 +38,12 @@ $configHash = try { (Get-FileHash -Path $configPath -Algorithm SHA256 -ErrorActi
 $installStampFile = Join-Path $SecretsDir "install.stamp"
 $installSeenFile  = Join-Path $SecretsDir "install.seen"
 $installSeen = if (Test-Path $installSeenFile) { (Get-Content $installSeenFile -Raw).Trim() } else { "" }
+$lastHostsLockLog = [datetime]::MinValue   # rate-limit the "hosts locked by another process" log line
+# Post-install grace: for a few minutes after an install, the installer legitimately changes the
+# config (hash) and stamp, which would otherwise fire ConfigTamper + AgentReinstalled every setup.
+# Suppress those (but still absorb the change) while within the window off the install.stamp's mtime.
+$installTime = if (Test-Path $installStampFile) { (Get-Item $installStampFile).LastWriteTime } else { Get-Date }
+$graceMinutes = if ($null -ne $cfg.postInstallGraceMinutes) { [int]$cfg.postInstallGraceMinutes } else { 5 }
 
 # Porn blocklist (VPN-proof via the hosts file). Downloaded + refreshed daily by the agent.
 $hostsPath   = "$env:WINDIR\System32\drivers\etc\hosts"
@@ -40,6 +57,16 @@ $dnsMgmtEnabled = -not ($cfg.dnsManagementEnabled -eq $false)   # let the agent 
 $incognitoDisableEnabled = -not ($cfg.incognitoDisableEnabled -eq $false)   # kill browser incognito/private mode; default ON
 $torBlockEnabled = -not ($cfg.torBlockEnabled -eq $false)   # detect + close Tor Browser (bypasses NextDNS); default ON
 $instantPornAlertEnabled = -not ($cfg.instantPornAlertEnabled -eq $false)   # email witness the moment a porn URL is seen; default ON
+# NextDNS ATTEMPT alert: emails the witness when a porn domain is REQUESTED (blocked or not), via
+# the NextDNS query log. Presence-gated: on only when both an API key and a profile id are configured.
+$nextDnsApiKey    = "$($cfg.nextDnsApiKey)"
+$nextDnsProfileId = "$($cfg.nextDnsProfileId)"
+$nextDnsAttemptAlertEnabled = ($nextDnsApiKey -and $nextDnsProfileId -and -not ($cfg.nextDnsAttemptAlertEnabled -eq $false))
+$nextDnsPollSeconds = if ($cfg.nextDnsPollSeconds) { [int]$cfg.nextDnsPollSeconds } else { 60 }   # don't hammer the API
+$lastNextDnsPoll = [datetime]::MinValue
+# Local sinkhole attempt alert: the sinkhole task logs the hostname of every blocked domain a browser
+# tries to reach (via TLS SNI). This is the VPN-proof "email me when I TRY" path. Default ON.
+$sinkholeAlertEnabled = -not ($cfg.sinkholeAlertEnabled -eq $false)
 $expectedHostsHash = ""     # hash of the hosts file after our last write, for cheap tamper detection
 $desired = $null            # cached desired domain set (app-policy + porn); recomputed only on change
 $safeRedirects = @{}        # cached SafeSearch host->IP redirects; recomputed with $desired
@@ -65,6 +92,9 @@ while ($true) {
   # trigger a restart that re-fires alerts. Contain each iteration; log and continue.
   try {
     $day = Get-Date -Format "yyyyMMdd"
+    # Within the post-install grace window, the installer's own config/stamp changes are expected —
+    # absorb them silently instead of alerting the witness for every (re)install.
+    $inGrace = ((Get-Date) - $installTime).TotalMinutes -lt $graceMinutes
     # Roll the clean-day streak forward if the calendar day changed.
     $streak = Update-DayState -State $streak -Today $day
 
@@ -214,6 +244,11 @@ while ($true) {
     $curHostsHash = if (Test-Path $hostsPath) { (Get-FileHash -Path $hostsPath -Algorithm SHA256).Hash } else { "" }
     $tampered = (-not $firstLoop) -and (-not $setChanged) -and ($curHostsHash -ne $expectedHostsHash)
     if ($firstLoop -or $setChanged -or $tampered) {
+      # The hosts file is often held by another process (Defender/AV scanning it after each rewrite,
+      # heavy while a VPN flaps and the porn set is toggled in/out). If the write can't complete,
+      # DON'T log every poll and DON'T treat it as tampering — note it at most once per 10 min, leave
+      # $expectedHostsHash unchanged, and retry next loop. This is contention, not an external edit.
+      try {
         Set-HostsBlock -Domains $desired -Redirects $safeRedirects | Out-Null
         $expectedHostsHash = if (Test-Path $hostsPath) { (Get-FileHash -Path $hostsPath -Algorithm SHA256).Hash } else { "" }
         if ($tampered) {
@@ -226,20 +261,28 @@ while ($true) {
                 $tamperAlerted[$k] = $true
             }
         }
+      } catch {
+        if (((Get-Date) - $lastHostsLockLog).TotalMinutes -gt 10) {
+            Write-AgentLog "Hosts file locked by another process; will retry next loop (not tampering)."
+            $lastHostsLockLog = Get-Date
+        }
+      }
     }
 
     # --- Config-file tamper: alert if agent-config.json changed on disk ---
     $curHash = try { (Get-FileHash -Path $configPath -Algorithm SHA256 -ErrorAction Stop).Hash } catch { $configHash }
     if ($configHash -and $curHash -ne $configHash) {
-        $streak.Flagged = $true
-        $k = "ConfigTamper|$day"
-        if (-not $tamperAlerted[$k]) {
-            $al = Format-AlertEmail -Kind "ConfigTamper" -Detail ""
-            Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
-            Write-AgentLog "Tamper: agent-config.json altered + alerted."
-            $tamperAlerted[$k] = $true
+        if (-not $inGrace) {   # a config edit right after install is the installer itself, not tampering
+            $streak.Flagged = $true
+            $k = "ConfigTamper|$day"
+            if (-not $tamperAlerted[$k]) {
+                $al = Format-AlertEmail -Kind "ConfigTamper" -Detail ""
+                Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                Write-AgentLog "Tamper: agent-config.json altered + alerted."
+                $tamperAlerted[$k] = $true
+            }
         }
-        $configHash = $curHash
+        $configHash = $curHash   # absorb the new hash either way, so we don't re-fire after grace
     }
 
     # --- Re-install / uninstall-password-change detection ---
@@ -247,7 +290,7 @@ while ($true) {
     # (which can re-register the agent or change the uninstall password). Alert the witness.
     $installNow = if (Test-Path $installStampFile) { (Get-Content $installStampFile -Raw).Trim() } else { "" }
     if ($installNow -and $installNow -ne $installSeen) {
-        if ($installSeen) {   # not the very first install -> the installer was re-run
+        if ($installSeen -and -not $inGrace) {   # re-run (not first install) AND past the grace window
             $streak.Flagged = $true
             $k = "AgentReinstalled|$day"
             if (-not $tamperAlerted[$k]) {
@@ -279,6 +322,14 @@ while ($true) {
     if ($serialized -ne $lastStreakSerialized) {
         $serialized | Set-Content -Path $streakFile -Encoding utf8
         $lastStreakSerialized = $serialized
+    }
+
+    # --- Persist the tamper-alert dedup when it changed, so a later restart won't re-send today's
+    # alerts. (Old keys self-expire: startup only loads keys ending in today's date.) ---
+    $alertKeys = (($tamperAlerted.Keys | Sort-Object) -join "`n")
+    if ($alertKeys -ne $lastAlertKeys) {
+        Set-Content -Path $alertStateFile -Value @($tamperAlerted.Keys | Where-Object { $_ }) -Encoding ASCII
+        $lastAlertKeys = $alertKeys
     }
 
     # --- Dead-man's switch: monitor heartbeat must be fresh ---
@@ -330,6 +381,49 @@ while ($true) {
                     $al = Format-AlertEmail -Kind "PornAccess" -Detail $hit
                     Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
                     Write-AgentLog "Instant alert: adult site accessed ($url); witness notified."
+                    $pornAlerted[$k] = $true
+                }
+            }
+        }
+    }
+
+    # --- NextDNS ATTEMPT alert: poll the DNS query log (rate-limited) so the witness is emailed the
+    # moment a porn domain is REQUESTED, blocked or not. Catches what the history reader can't: a
+    # blocked site never loads, so it never reaches browser history, but it DOES hit the DNS log. ---
+    if ($nextDnsAttemptAlertEnabled -and ((Get-Date) - $lastNextDnsPoll).TotalSeconds -ge $nextDnsPollSeconds) {
+        $lastNextDnsPoll = Get-Date
+        $pornListDns = Get-PornBlocklist -CachePath $pornCache
+        foreach ($hit in @(Get-NextDnsPornAttempts -ApiKey $nextDnsApiKey -ProfileId $nextDnsProfileId -Domains $pornListDns)) {
+            $dom = ((($hit -split '\s*\|\s*', 2)[-1]).Trim())
+            $k = "attempt:$dom|$day"
+            if ($dom -and -not $pornAlerted[$k]) {
+                $streak.Flagged = $true
+                $al = Format-AlertEmail -Kind "PornAttempt" -Detail $dom
+                Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                Write-AgentLog "Instant alert: adult site ATTEMPTED via NextDNS ($dom); witness notified."
+                $pornAlerted[$k] = $true
+            }
+        }
+    }
+
+    # --- Local sinkhole attempt alert: the sinkhole task logs every blocked domain a browser tried
+    # to reach (recovered via TLS SNI), which works even on a VPN where NextDNS is blind. Match those
+    # against the porn list and email the witness. Clear the spool after reading (dedup is per-day
+    # in-memory, so a repeat attempt to the same domain won't re-spam within the day). ---
+    if ($sinkholeAlertEnabled) {
+        $sinkSpool = Join-Path $RuntimeDir "sinkhole-spool.txt"
+        if (Test-Path $sinkSpool) {
+            $pornListSink = Get-PornBlocklist -CachePath $pornCache
+            $sinkLines = @(Get-Content $sinkSpool -ErrorAction SilentlyContinue)
+            Clear-Content -Path $sinkSpool -ErrorAction SilentlyContinue
+            foreach ($hit in @(Select-PornHits -Lines $sinkLines -Domains $pornListSink)) {
+                $dom = ((($hit -split '\s*\|\s*', 2)[-1]).Trim())
+                $k = "attempt:$dom|$day"   # shared with the NextDNS attempt alert: one email per domain/day
+                if ($dom -and -not $pornAlerted[$k]) {
+                    $streak.Flagged = $true
+                    $al = Format-AlertEmail -Kind "PornAttempt" -Detail $dom
+                    Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                    Write-AgentLog "Instant alert: adult site ATTEMPTED (sinkhole/VPN-proof) ($dom); witness notified."
                     $pornAlerted[$k] = $true
                 }
             }
