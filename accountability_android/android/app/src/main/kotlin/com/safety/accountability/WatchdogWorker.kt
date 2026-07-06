@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.provider.Settings
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 
@@ -12,6 +13,12 @@ class WatchdogWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, param
         val ctx = applicationContext
         NativeConfig.ensureLoaded(ctx)                                  // fresh process: reload config (#2)
         if (NativeConfig.isReleasing(ctx)) return Result.success()      // authorized release, stand down (#6)
+
+        // NextDNS on the phone = Private DNS pointed at nextdns.io. If it's off/changed, the block is
+        // gone — alert. (A sandboxed app can't re-set it; WRITE_SECURE_SETTINGS isn't grantable.)
+        if (nextDnsPrivateDnsMissing(ctx) && NativeConfig.shouldAlertOncePerDay(ctx, "dns_off")) {
+            Alerts.notifyBlocking(ctx, AlertKind.DNS_OFF, "")
+        }
 
         // Tor apps bypass NextDNS entirely and can't be blocked/killed on Android — detect + alert.
         for (pkg in TorDetect.installed(ctx)) {
@@ -51,5 +58,16 @@ class WatchdogWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, param
             if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return true
         }
         return false
+    }
+
+    // Is Private DNS NOT set to NextDNS? Reads the global Private DNS mode/host. Returns true only when
+    // we can read the setting AND it isn't hostname-mode pointed at nextdns.io (so an unreadable
+    // setting never false-alarms). Blocking on the phone depends entirely on this being on.
+    private fun nextDnsPrivateDnsMissing(ctx: Context): Boolean {
+        val cr = ctx.contentResolver
+        val mode = Settings.Global.getString(cr, "private_dns_mode") ?: return false  // unknown → don't alert
+        if (mode != "hostname") return true                                           // off or automatic
+        val host = Settings.Global.getString(cr, "private_dns_specifier")
+        return host == null || !host.contains("nextdns.io")
     }
 }

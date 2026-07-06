@@ -1,6 +1,6 @@
 package com.safety.accountability
 
-enum class AlertKind { VPN_OFF, ADMIN_DISABLED, RELEASE_ATTEMPT, HEARTBEAT, PORN_ATTEMPT, TOR_DETECTED }
+enum class AlertKind { VPN_OFF, ADMIN_DISABLED, RELEASE_ATTEMPT, HEARTBEAT, PORN_ATTEMPT, TOR_DETECTED, DNS_OFF }
 data class AlertEmail(val subject: String, val body: String)
 
 object AlertMessages {
@@ -20,6 +20,9 @@ object AlertMessages {
         AlertKind.PORN_ATTEMPT -> AlertEmail(
             "[Accountability] Adult site attempted",
             "An adult/porn domain was requested on the phone (seen in the DNS tunnel). It was blocked by NextDNS; this fires on the attempt. Domain: $detail")
+        AlertKind.DNS_OFF -> AlertEmail(
+            "[Accountability] NextDNS turned off on the phone",
+            "The phone's Private DNS is no longer set to NextDNS — the porn block is OFF. It was changed or disabled in Settings. $detail")
         AlertKind.TOR_DETECTED -> AlertEmail(
             "[Accountability] Tor app detected on the phone",
             "A Tor app ($detail) is installed on the phone. Tor routes traffic outside NextDNS, so it can bypass the block entirely. This is a circumvention tool worth addressing. Android can't auto-remove it — this is a heads-up, not a block.")
