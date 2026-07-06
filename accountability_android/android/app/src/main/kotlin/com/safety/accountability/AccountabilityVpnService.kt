@@ -54,21 +54,20 @@ class AccountabilityVpnService : VpnService() {
 
     private fun startTunnel() {
         if (running) return
-        // IPv4-only DNS capture. IPv6 DNS forwarding (audit #9) was reverted: on a real dual-stack
-        // device it broke resolution for IPv6-heavy sites (Google search), and it can't be verified
-        // without a device. IPv6 DNS filtering is instead handled by NextDNS Private DNS (set on the
-        // phone), which covers all DNS system-wide. Re-add IPv6 here only with on-device testing.
-        // We route only the virtual DNS server into the tunnel (not all traffic), so browsing flows
-        // directly — only DNS is forced through us.
+        // DNS is NOT handled here. Routing DNS through our own DoH pump caused a fatal bootstrap loop
+        // (resolving the DoH host dns.nextdns.io needs DNS = us → every lookup failed, DNS_PROBE_
+        // FINISHED_BAD_CONFIG). NextDNS Private DNS (set on the phone) already filters ALL DNS natively
+        // and reliably, so this tunnel does NOT set a DNS server or capture DNS — it only occupies the
+        // single Android VPN slot so a bypass VPN can't start. It routes just its own /32 (nothing
+        // real), leaving all traffic + DNS to flow normally through Private DNS.
         val b = Builder()
             .setSession("Accountability")
             .addAddress("10.111.222.1", 32)
-            .addDnsServer("10.111.222.2")
-            .addRoute("10.111.222.2", 32)
+            .addRoute("10.111.222.1", 32)
             .setBlocking(true)
         tunnel = b.establish() ?: run { stopSelf(); return }
         running = true
-        Thread { pump(tunnel!!) }.start()
+        // No pump / no DoH: nothing real is routed to us, so there is nothing to read or forward.
     }
 
     private fun pump(pfd: ParcelFileDescriptor) {
