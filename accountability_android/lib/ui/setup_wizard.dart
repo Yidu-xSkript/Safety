@@ -18,6 +18,7 @@ class _SetupWizardState extends State<SetupWizard> {
   final _pass = TextEditingController();
   final _pin = TextEditingController();
   String? _error;
+  bool _sending = false;
 
   Future<void> _finish() async {
     final cfg = AgentConfig(
@@ -30,15 +31,31 @@ class _SetupWizardState extends State<SetupWizard> {
       setState(() => _error = cfg.validationErrors.join(', ') + (_pin.text.length < 6 ? ' pin>=6' : ''));
       return;
     }
-    final store = ConfigStore();
-    await store.saveConfig(cfg);
-    await store.savePinHash(Pin.hash(_pin.text));   // PBKDF2 + random salt (audit #13)
-    final ch = EnforcementChannel();
-    await ch.configure(cfg);
-    await ch.requestAdmin();
-    await ch.startVpn();
-    await ch.startWatchdog();
-    if (mounted) Navigator.of(context).pushReplacementNamed('/status');
+    setState(() { _error = null; _sending = true; });
+    try {
+      final store = ConfigStore();
+      await store.saveConfig(cfg);
+      await store.savePinHash(Pin.hash(_pin.text));   // PBKDF2 + random salt (audit #13)
+      final ch = EnforcementChannel();
+      await ch.configure(cfg);
+      // Self-test: prove the witness will actually be emailed BEFORE activating. If the SMTP is
+      // wrong, every alert would fail silently — so we refuse to finish setup until a test lands.
+      final emailErr = await ch.testEmail();
+      if (emailErr != null) {
+        setState(() {
+          _sending = false;
+          _error = 'Test email failed — protection NOT activated. Check the witness email, SMTP user, '
+              'and app password, then try again.\n($emailErr)';
+        });
+        return;
+      }
+      await ch.requestAdmin();
+      await ch.startVpn();
+      await ch.startWatchdog();
+      if (mounted) Navigator.of(context).pushReplacementNamed('/status');
+    } catch (e) {
+      setState(() { _sending = false; _error = 'Setup error: $e'; });
+    }
   }
 
   @override
@@ -55,7 +72,16 @@ class _SetupWizardState extends State<SetupWizard> {
       TextField(controller: _pin, obscureText: true, keyboardType: TextInputType.number,
         decoration: const InputDecoration(labelText: 'Witness PIN — 6+ digits (you set, keep secret)')),
       if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
-      ElevatedButton(onPressed: _finish, child: const Text('Activate protection')),
+      const SizedBox(height: 4),
+      ElevatedButton(
+        onPressed: _sending ? null : _finish,
+        child: Text(_sending ? 'Sending test email…' : 'Send test email & activate'),
+      ),
+      const Padding(
+        padding: EdgeInsets.only(top: 6),
+        child: Text('A test email is sent to the witness first. Protection activates only if it arrives.',
+            style: TextStyle(fontSize: 12, color: Colors.black54)),
+      ),
     ]),
   );
 }

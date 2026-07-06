@@ -17,6 +17,9 @@ class EnforcementChannel {
   Future<void> release() => _c.invokeMethod('release');
   Future<void> alertReleaseAttempt() => _c.invokeMethod('alertReleaseAttempt');
 
+  // Sends a real test email via the configured SMTP. Returns null on success, or an error message.
+  Future<String?> testEmail() async => await _c.invokeMethod('testEmail') as String?;
+
   // Real protection state: { 'vpn', 'admin', 'watchdog' } → each true only if actually on.
   Future<Map<String, bool>> status() async {
     final r = await _c.invokeMethod('status');
