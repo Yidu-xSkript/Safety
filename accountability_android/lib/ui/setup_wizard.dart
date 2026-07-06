@@ -25,7 +25,7 @@ class _SetupWizardState extends State<SetupWizard> {
       witnessEmail: _witness.text.trim(),
       nextDnsDohUrl: _doh.text.trim(),
       smtp: SmtpConfig(_host.text.trim(), int.tryParse(_port.text) ?? 587,
-          _user.text.trim(), _pass.text, _user.text.trim()),
+          _user.text.trim(), _pass.text.trim(), _user.text.trim()),
     );
     if (!cfg.isValid || _pin.text.length < 6) {
       setState(() => _error = cfg.validationErrors.join(', ') + (_pin.text.length < 6 ? ' pin>=6' : ''));
@@ -62,12 +62,26 @@ class _SetupWizardState extends State<SetupWizard> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Witness setup')),
     body: ListView(padding: const EdgeInsets.all(16), children: [
-      TextField(controller: _witness, decoration: const InputDecoration(labelText: 'Witness email')),
-      TextField(controller: _doh, decoration: const InputDecoration(labelText: 'NextDNS DoH URL')),
-      TextField(controller: _host, decoration: const InputDecoration(labelText: 'SMTP host')),
-      TextField(controller: _port, decoration: const InputDecoration(labelText: 'SMTP port')),
-      TextField(controller: _user, decoration: const InputDecoration(labelText: 'SMTP user/from')),
-      TextField(controller: _pass, obscureText: true, decoration: const InputDecoration(labelText: 'SMTP app password')),
+      // autocorrect/autocapitalization OFF on every credential + address field — a phone keyboard
+      // silently capitalizing or "correcting" a username/password/host is the classic cause of
+      // "I typed it right but it fails".
+      TextField(controller: _witness, keyboardType: TextInputType.emailAddress,
+          autocorrect: false, enableSuggestions: false, textCapitalization: TextCapitalization.none,
+          decoration: const InputDecoration(labelText: 'Witness email')),
+      TextField(controller: _doh, keyboardType: TextInputType.url,
+          autocorrect: false, enableSuggestions: false, textCapitalization: TextCapitalization.none,
+          decoration: const InputDecoration(labelText: 'NextDNS DoH URL')),
+      TextField(controller: _host, keyboardType: TextInputType.url,
+          autocorrect: false, enableSuggestions: false, textCapitalization: TextCapitalization.none,
+          decoration: const InputDecoration(labelText: 'SMTP host')),
+      TextField(controller: _port, keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'SMTP port')),
+      TextField(controller: _user, keyboardType: TextInputType.emailAddress,
+          autocorrect: false, enableSuggestions: false, textCapitalization: TextCapitalization.none,
+          decoration: const InputDecoration(labelText: 'SMTP user/from')),
+      TextField(controller: _pass, obscureText: true,
+          autocorrect: false, enableSuggestions: false, textCapitalization: TextCapitalization.none,
+          decoration: const InputDecoration(labelText: 'SMTP app password (paste it to be safe)')),
       const Divider(),
       TextField(controller: _pin, obscureText: true, keyboardType: TextInputType.number,
         decoration: const InputDecoration(labelText: 'Witness PIN — 6+ digits (you set, keep secret)')),

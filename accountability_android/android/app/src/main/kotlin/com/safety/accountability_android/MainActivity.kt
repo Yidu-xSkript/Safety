@@ -78,12 +78,18 @@ class MainActivity : FlutterActivity() {
                             result.success("Email is not configured yet — fill in the witness email and SMTP fields.")
                         } else {
                             Thread {
+                                // Catch Throwable (not just Exception) so a NoClassDefFoundError from a
+                                // stripped mail class also surfaces. Report the exception type + root
+                                // cause so the real problem (auth vs provider vs TLS vs DNS) is visible.
                                 val err = try {
                                     reporter.send(to, AlertEmail(
                                         "[Accountability] Setup test",
                                         "Success — alerting works. The witness will be emailed on tamper and porn attempts."))
                                     null   // null == success
-                                } catch (e: Exception) { e.message ?: "Unknown email error" }
+                                } catch (e: Throwable) {
+                                    val root = generateSequence(e as Throwable) { it.cause }.last()
+                                    "${e.javaClass.simpleName}: ${e.message ?: ""} | root ${root.javaClass.simpleName}: ${root.message ?: ""}"
+                                }
                                 runOnUiThread { result.success(err) }
                             }.start()
                         }
