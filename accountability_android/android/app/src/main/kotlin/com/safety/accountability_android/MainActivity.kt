@@ -12,6 +12,7 @@ import android.net.NetworkCapabilities
 import com.safety.accountability.AccountabilityVpnService
 import com.safety.accountability.AdminReceiver
 import com.safety.accountability.AdminState
+import com.safety.accountability.AlertEmail
 import com.safety.accountability.AlertKind
 import com.safety.accountability.Alerts
 import com.safety.accountability.EmailReporter
@@ -69,6 +70,23 @@ class MainActivity : FlutterActivity() {
                     "alertReleaseAttempt" -> {   // repeated wrong witness PIN (audit #7)
                         Alerts.notifyAsync(this, AlertKind.RELEASE_ATTEMPT, "")
                         result.success(true)
+                    }
+                    "testEmail" -> {   // setup self-test: send a real email so a bad SMTP config can't slip through
+                        val to = (call.argument<String>("to") ?: EnforcementState.witnessEmail).orEmpty()
+                        val reporter = EnforcementState.reporter
+                        if (reporter == null || to.isBlank()) {
+                            result.success("Email is not configured yet — fill in the witness email and SMTP fields.")
+                        } else {
+                            Thread {
+                                val err = try {
+                                    reporter.send(to, AlertEmail(
+                                        "[Accountability] Setup test",
+                                        "Success — alerting works. The witness will be emailed on tamper and porn attempts."))
+                                    null   // null == success
+                                } catch (e: Exception) { e.message ?: "Unknown email error" }
+                                runOnUiThread { result.success(err) }
+                            }.start()
+                        }
                     }
                     "status" -> {   // REAL protection state so the status screen can't show a false "active" (#12)
                         result.success(mapOf(
