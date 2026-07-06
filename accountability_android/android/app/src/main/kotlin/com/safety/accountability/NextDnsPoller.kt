@@ -15,20 +15,24 @@ object NextDnsPoller {
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
-    // Recent queried domains (lower-cased). Empty on any error (fail-quiet). This runs over the normal
-    // network + Private DNS (the VPN no longer captures DNS), so there is no bootstrap loop.
-    fun fetchDomains(apiKey: String, profileId: String, limit: Int = 100): List<String> {
+    // Queried names (lower-cased) from the log. `from` is an optional relative window ("-1h") and
+    // `field` picks "domain" (exact query, for porn matching) or "root" (registrable domain, for a
+    // readable digest). Empty on any error (fail-quiet). Runs over the normal network + Private DNS
+    // (the VPN no longer captures DNS), so there is no bootstrap loop.
+    fun fetch(apiKey: String, profileId: String, from: String? = null, limit: Int = 100, field: String = "domain"): List<String> {
         return try {
-            val req = Request.Builder()
-                .url("https://api.nextdns.io/profiles/$profileId/logs?limit=$limit")
-                .header("X-Api-Key", apiKey)
-                .build()
+            val url = buildString {
+                append("https://api.nextdns.io/profiles/$profileId/logs?limit=$limit")
+                if (!from.isNullOrBlank()) append("&from=$from")
+            }
+            val req = Request.Builder().url(url).header("X-Api-Key", apiKey).build()
             http.newCall(req).execute().use { resp ->
                 val body = resp.body?.string() ?: return emptyList()
                 val arr = JSONObject(body).optJSONArray("data") ?: return emptyList()
                 (0 until arr.length()).mapNotNull { i ->
-                    val d = arr.optJSONObject(i)?.optString("domain")?.lowercase()
-                    if (d.isNullOrBlank()) null else d
+                    val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                    val v = o.optString(field).ifBlank { o.optString("domain") }.lowercase()
+                    if (v.isBlank()) null else v
                 }
             }
         } catch (e: Throwable) { emptyList() }
