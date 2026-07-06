@@ -36,6 +36,7 @@ class AccountabilityVpnService : VpnService() {
         startForeground(NOTIF_ID, buildNotification())
         startTunnel()
         startAttemptPoller()
+        startHourlyReport()
         return START_STICKY
     }
 
@@ -48,13 +49,36 @@ class AccountabilityVpnService : VpnService() {
         Thread {
             while (running) {
                 try {
-                    for (d in NextDnsPoller.fetchDomains(apiKey, profileId)) {
+                    for (d in NextDnsPoller.fetch(apiKey, profileId, limit = 100, field = "domain")) {
                         if (PornList.isPorn(d) && NativeConfig.shouldAlertPorn(this, d)) {
                             Alerts.notifyAsync(this, AlertKind.PORN_ATTEMPT, d)
                         }
                     }
                 } catch (e: Throwable) { }
                 try { Thread.sleep(60_000) } catch (e: InterruptedException) { break }
+            }
+        }.start()
+    }
+
+    // Email the witness an hourly activity digest of the phone's domains (from the NextDNS log,
+    // grouped by count). No-op without an API key. Runs off the main thread; sends synchronously.
+    private fun startHourlyReport() {
+        val apiKey = EnforcementState.nextDnsApiKey
+        val profileId = EnforcementState.nextDnsProfileId
+        if (apiKey.isNullOrBlank() || profileId.isNullOrBlank()) return
+        Thread {
+            while (running) {
+                try { Thread.sleep(3_600_000L) } catch (e: InterruptedException) { break }   // 1 hour
+                if (!running) break
+                try {
+                    val roots = NextDnsPoller.fetch(apiKey, profileId, from = "-1h", limit = 1000, field = "root")
+                    val to = EnforcementState.witnessEmail
+                    val reporter = EnforcementState.reporter
+                    if (to != null && reporter != null) {
+                        reporter.send(to, AlertEmail("[Accountability] Phone activity (hourly)",
+                            NextDnsReport.format(roots, "hour")))
+                    }
+                } catch (e: Throwable) { }
             }
         }.start()
     }
