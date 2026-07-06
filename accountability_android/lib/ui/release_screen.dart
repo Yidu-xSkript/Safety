@@ -20,6 +20,10 @@ class _ReleaseScreenState extends State<ReleaseScreen> {
       setState(() => _msg = 'Released. You may now uninstall the app.');
     } else {
       _wrong++;
+      // Notify the witness after repeated wrong PINs — someone is trying to release without it (#7).
+      if (_wrong >= 3) {
+        try { await EnforcementChannel().alertReleaseAttempt(); } catch (_) {}
+      }
       setState(() => _msg = 'Wrong PIN ($_wrong).');
     }
   }

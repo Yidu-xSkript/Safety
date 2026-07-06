@@ -26,13 +26,13 @@ class _SetupWizardState extends State<SetupWizard> {
       smtp: SmtpConfig(_host.text.trim(), int.tryParse(_port.text) ?? 587,
           _user.text.trim(), _pass.text, _user.text.trim()),
     );
-    if (!cfg.isValid || _pin.text.length < 4) {
-      setState(() => _error = cfg.validationErrors.join(', ') + (_pin.text.length < 4 ? ' pin>=4' : ''));
+    if (!cfg.isValid || _pin.text.length < 6) {
+      setState(() => _error = cfg.validationErrors.join(', ') + (_pin.text.length < 6 ? ' pin>=6' : ''));
       return;
     }
     final store = ConfigStore();
     await store.saveConfig(cfg);
-    await store.savePinHash(Pin.hash(_pin.text, salt: DateTime.now().microsecondsSinceEpoch.toString()));
+    await store.savePinHash(Pin.hash(_pin.text));   // PBKDF2 + random salt (audit #13)
     final ch = EnforcementChannel();
     await ch.configure(cfg);
     await ch.requestAdmin();
@@ -53,7 +53,7 @@ class _SetupWizardState extends State<SetupWizard> {
       TextField(controller: _pass, obscureText: true, decoration: const InputDecoration(labelText: 'SMTP app password')),
       const Divider(),
       TextField(controller: _pin, obscureText: true, keyboardType: TextInputType.number,
-        decoration: const InputDecoration(labelText: 'Witness PIN (you set, keep secret)')),
+        decoration: const InputDecoration(labelText: 'Witness PIN — 6+ digits (you set, keep secret)')),
       if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
       ElevatedButton(onPressed: _finish, child: const Text('Activate protection')),
     ]),
