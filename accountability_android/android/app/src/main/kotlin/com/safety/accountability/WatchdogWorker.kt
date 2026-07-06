@@ -14,15 +14,16 @@ class WatchdogWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, param
         NativeConfig.ensureLoaded(ctx)                                  // fresh process: reload config (#2)
         if (NativeConfig.isReleasing(ctx)) return Result.success()      // authorized release, stand down (#6)
 
-        // Daily app-usage report (which apps + how long), once per ~24h. Only when Usage Access is
-        // granted; otherwise silently skip (the setup step prompts for the grant).
-        if (AppUsage.hasAccess(ctx) && NativeConfig.shouldAlertWithin(ctx, "appreport", 24 * 60 * 60 * 1000L)) {
+        // Hourly app-usage report (which apps + how long), once per ~hour. Only when Usage Access is
+        // granted; otherwise silently skip (the setup step prompts for the grant). The watchdog runs
+        // every 15 min, so the once-per-hour dedup gives roughly hourly delivery.
+        if (AppUsage.hasAccess(ctx) && NativeConfig.shouldAlertWithin(ctx, "appreport", 60 * 60 * 1000L)) {
             val to = EnforcementState.witnessEmail
             val reporter = EnforcementState.reporter
             if (to != null && reporter != null) {
                 try {
-                    reporter.send(to, AlertEmail("[Accountability] Phone app usage (daily)",
-                        AppUsage.report(ctx, 24 * 60 * 60 * 1000L, "24 hours")))
+                    reporter.send(to, AlertEmail("[Accountability] Phone app usage (hourly)",
+                        AppUsage.report(ctx, 60 * 60 * 1000L, "hour")))
                 } catch (e: Throwable) { }
             }
         }
