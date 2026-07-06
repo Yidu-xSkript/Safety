@@ -42,11 +42,15 @@ class MainActivity : FlutterActivity() {
                         val smtpUser: String = call.argument("smtpUser")!!
                         val smtpPass: String = call.argument("smtpPass")!!
                         val smtpFrom: String = call.argument("smtpFrom")!!
+                        val apiKey: String = call.argument<String>("nextDnsApiKey") ?: ""
+                        val profileId: String = call.argument<String>("nextDnsProfileId") ?: ""
                         EnforcementState.dohUrl = dohUrl
                         EnforcementState.witnessEmail = witnessEmail
+                        EnforcementState.nextDnsApiKey = apiKey
+                        EnforcementState.nextDnsProfileId = profileId
                         EnforcementState.reporter = EmailReporter(smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom)
                         // Persist so background entry points work in a fresh process (audit #2).
-                        NativeConfig.save(this, dohUrl, witnessEmail, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom)
+                        NativeConfig.save(this, dohUrl, witnessEmail, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, apiKey, profileId)
                         NativeConfig.setReleasing(this, false)   // (re)configuring means we're protecting again
                         result.success(true)
                     }

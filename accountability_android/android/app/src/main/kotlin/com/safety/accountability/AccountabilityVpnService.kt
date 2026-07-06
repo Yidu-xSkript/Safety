@@ -35,7 +35,28 @@ class AccountabilityVpnService : VpnService() {
         // and gets reaped quickly, so "always-on" fails without this (audit #3).
         startForeground(NOTIF_ID, buildNotification())
         startTunnel()
+        startAttemptPoller()
         return START_STICKY
+    }
+
+    // Poll the NextDNS log for porn attempts and email the witness — the DNS-less way to get phone-side
+    // attempt alerts. No-op unless an API key + profile id are configured. One email per domain/day.
+    private fun startAttemptPoller() {
+        val apiKey = EnforcementState.nextDnsApiKey
+        val profileId = EnforcementState.nextDnsProfileId
+        if (apiKey.isNullOrBlank() || profileId.isNullOrBlank()) return
+        Thread {
+            while (running) {
+                try {
+                    for (d in NextDnsPoller.fetchDomains(apiKey, profileId)) {
+                        if (PornList.isPorn(d) && NativeConfig.shouldAlertPorn(this, d)) {
+                            Alerts.notifyAsync(this, AlertKind.PORN_ATTEMPT, d)
+                        }
+                    }
+                } catch (e: Throwable) { }
+                try { Thread.sleep(60_000) } catch (e: InterruptedException) { break }
+            }
+        }.start()
     }
 
     private fun buildNotification(): Notification {

@@ -16,6 +16,7 @@ class _SetupWizardState extends State<SetupWizard> {
   final _port = TextEditingController(text: '587');
   final _user = TextEditingController();
   final _pass = TextEditingController();
+  final _apiKey = TextEditingController();
   final _pin = TextEditingController();
   String? _error;
   bool _sending = false;
@@ -24,6 +25,7 @@ class _SetupWizardState extends State<SetupWizard> {
     final cfg = AgentConfig(
       witnessEmail: _witness.text.trim(),
       nextDnsDohUrl: _doh.text.trim(),
+      nextDnsApiKey: _apiKey.text.trim().isEmpty ? null : _apiKey.text.trim(),
       smtp: SmtpConfig(_host.text.trim(), int.tryParse(_port.text) ?? 587,
           _user.text.trim(), _pass.text.trim(), _user.text.trim()),
     );
@@ -82,6 +84,10 @@ class _SetupWizardState extends State<SetupWizard> {
       TextField(controller: _pass, obscureText: true,
           autocorrect: false, enableSuggestions: false, textCapitalization: TextCapitalization.none,
           decoration: const InputDecoration(labelText: 'SMTP app password (paste it to be safe)')),
+      TextField(controller: _apiKey,
+          autocorrect: false, enableSuggestions: false, textCapitalization: TextCapitalization.none,
+          decoration: const InputDecoration(
+              labelText: 'NextDNS API key (optional — enables porn-attempt emails from the phone)')),
       const Divider(),
       TextField(controller: _pin, obscureText: true, keyboardType: TextInputType.number,
         decoration: const InputDecoration(labelText: 'Witness PIN — 6+ digits (you set, keep secret)')),

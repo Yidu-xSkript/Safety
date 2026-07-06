@@ -13,12 +13,15 @@ object NativeConfig {
     fun save(
         ctx: Context, dohUrl: String, witnessEmail: String,
         smtpHost: String, smtpPort: Int, smtpUser: String, smtpPass: String, smtpFrom: String,
+        nextDnsApiKey: String, nextDnsProfileId: String,
     ) {
         prefs(ctx).edit()
             .putString("dohUrl", dohUrl).putString("witnessEmail", witnessEmail)
             .putString("smtpHost", smtpHost).putInt("smtpPort", smtpPort)
             .putString("smtpUser", smtpUser).putString("smtpPass", smtpPass)
-            .putString("smtpFrom", smtpFrom).apply()
+            .putString("smtpFrom", smtpFrom)
+            .putString("nextDnsApiKey", nextDnsApiKey).putString("nextDnsProfileId", nextDnsProfileId)
+            .apply()
     }
 
     // Rebuild EnforcementState (incl. a fresh EmailReporter) from disk if it's empty. Safe to call
@@ -29,6 +32,8 @@ object NativeConfig {
         val doh = p.getString("dohUrl", null) ?: return
         EnforcementState.dohUrl = doh
         EnforcementState.witnessEmail = p.getString("witnessEmail", null)
+        EnforcementState.nextDnsApiKey = p.getString("nextDnsApiKey", null)
+        EnforcementState.nextDnsProfileId = p.getString("nextDnsProfileId", null)
         val host = p.getString("smtpHost", null)
         if (host != null && EnforcementState.reporter == null) {
             EnforcementState.reporter = EmailReporter(
