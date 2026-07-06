@@ -57,13 +57,22 @@ object NativeConfig {
         return t > 0L && (System.currentTimeMillis() - t) < withinMs
     }
 
-    // Per-domain-per-day dedup for porn-attempt alerts, so a repeat visit doesn't re-spam the witness.
-    fun shouldAlertPorn(ctx: Context, domain: String): Boolean {
-        val today = (System.currentTimeMillis() / 86_400_000L).toString()
-        val key = "porn:$domain:$today"
+    // Once-per-day dedup for a STANDING condition (e.g. "Tor is installed"), so it doesn't re-spam.
+    fun shouldAlertOncePerDay(ctx: Context, key: String): Boolean =
+        shouldAlertWithin(ctx, key, 24 * 60 * 60 * 1000L)
+
+    // Time-windowed dedup: alert again for the same key only after windowMs has passed. Used for porn
+    // attempts so a single visit's query burst collapses to ONE email, but a repeat attempt minutes
+    // later alerts again (unlike a full-day dedup, which would hide repeated attempts).
+    fun shouldAlertWithin(ctx: Context, key: String, windowMs: Long): Boolean {
+        val now = System.currentTimeMillis()
         val p = prefs(ctx)
-        if (p.getBoolean(key, false)) return false
-        p.edit().putBoolean(key, true).apply()
+        val last = p.getLong("alertts:$key", 0L)
+        if (now - last < windowMs) return false
+        p.edit().putLong("alertts:$key", now).apply()
         return true
     }
+
+    // Porn attempts: dedup per site for 5 minutes — one visit = one email, repeat attempts re-alert.
+    fun shouldAlertPorn(ctx: Context, domain: String) = shouldAlertWithin(ctx, "porn:$domain", 5 * 60 * 1000L)
 }

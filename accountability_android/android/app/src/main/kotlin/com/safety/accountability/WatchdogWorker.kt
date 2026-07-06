@@ -13,6 +13,13 @@ class WatchdogWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, param
         NativeConfig.ensureLoaded(ctx)                                  // fresh process: reload config (#2)
         if (NativeConfig.isReleasing(ctx)) return Result.success()      // authorized release, stand down (#6)
 
+        // Tor apps bypass NextDNS entirely and can't be blocked/killed on Android — detect + alert.
+        for (pkg in TorDetect.installed(ctx)) {
+            if (NativeConfig.shouldAlertOncePerDay(ctx, "tor:$pkg")) {
+                Alerts.notifyBlocking(ctx, AlertKind.TOR_DETECTED, pkg)
+            }
+        }
+
         val vpnUp = isVpnActive(ctx)
         val adminActive = AdminState.isActive(ctx)
         val heartbeatDue = HeartbeatClock.isDue(ctx)

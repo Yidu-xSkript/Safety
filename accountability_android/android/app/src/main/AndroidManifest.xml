@@ -64,5 +64,10 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Tor apps, so we can detect (and alert on) their install without QUERY_ALL_PACKAGES. -->
+        <package android:name="org.torproject.torbrowser"/>
+        <package android:name="org.torproject.torbrowser_alpha"/>
+        <package android:name="org.torproject.android"/>
+        <package android:name="org.torproject.vpn"/>
     </queries>
 </manifest>
