@@ -54,11 +54,17 @@ class AccountabilityVpnService : VpnService() {
 
     private fun startTunnel() {
         if (running) return
+        // Capture DNS on BOTH IPv4 and IPv6 so DNS can't bypass NextDNS over IPv6 on a dual-stack
+        // network (audit #9). We route only the virtual DNS servers into the tunnel (not all traffic),
+        // so normal browsing still flows directly — only DNS is forced through us.
         val b = Builder()
             .setSession("Accountability")
             .addAddress("10.111.222.1", 32)
+            .addAddress("fd00:acc0:acc0::1", 128)
             .addDnsServer("10.111.222.2")
+            .addDnsServer("fd00:acc0:acc0::2")
             .addRoute("10.111.222.2", 32)
+            .addRoute("fd00:acc0:acc0::2", 128)
             .setBlocking(true)
         tunnel = b.establish() ?: run { stopSelf(); return }
         running = true
