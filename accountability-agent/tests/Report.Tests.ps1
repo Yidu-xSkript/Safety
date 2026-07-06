@@ -56,6 +56,9 @@ Describe "Format-AlertEmail" {
     It "labels a hosts-tamper alert" {
         (Format-AlertEmail -Kind "HostsTamper" -Detail "").Subject | Should Match "block list"
     }
+    It "labels a NextDNS-disabled alert" {
+        (Format-AlertEmail -Kind "NextDnsDisabled" -Detail "").Subject | Should Match "NextDNS turned off"
+    }
     It "labels a DNS-tamper alert" {
         (Format-AlertEmail -Kind "DnsTamper" -Detail "").Subject | Should Match "DNS"
     }
