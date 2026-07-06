@@ -11,18 +11,28 @@ class SmtpConfig {
 class AgentConfig {
   final String? witnessEmail;
   final String? nextDnsDohUrl;
+  final String? nextDnsApiKey;   // optional: enables phone-side porn-attempt emails via the log API
   final SmtpConfig? smtp;
-  AgentConfig({this.witnessEmail, this.nextDnsDohUrl, this.smtp});
+  AgentConfig({this.witnessEmail, this.nextDnsDohUrl, this.nextDnsApiKey, this.smtp});
 
   factory AgentConfig.fromJson(Map j) => AgentConfig(
         witnessEmail: j['witnessEmail'],
         nextDnsDohUrl: j['nextDnsDohUrl'],
+        nextDnsApiKey: j['nextDnsApiKey'],
         smtp: j['smtp'] != null ? SmtpConfig.fromJson(j['smtp']) : null,
       );
+
+  // The profile id is the last path segment of the DoH URL (…/nextdns.io/<profileId>).
+  String? get nextDnsProfileId {
+    if (nextDnsDohUrl == null) return null;
+    final segs = Uri.parse(nextDnsDohUrl!).pathSegments.where((s) => s.isNotEmpty).toList();
+    return segs.isEmpty ? null : segs.last;
+  }
 
   Map<String, dynamic> toJson() => {
         if (witnessEmail != null) 'witnessEmail': witnessEmail,
         if (nextDnsDohUrl != null) 'nextDnsDohUrl': nextDnsDohUrl,
+        if (nextDnsApiKey != null) 'nextDnsApiKey': nextDnsApiKey,
         if (smtp != null) 'smtp': smtp!.toJson(),
       };
 

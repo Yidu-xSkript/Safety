@@ -35,7 +35,28 @@ class AccountabilityVpnService : VpnService() {
         // and gets reaped quickly, so "always-on" fails without this (audit #3).
         startForeground(NOTIF_ID, buildNotification())
         startTunnel()
+        startAttemptPoller()
         return START_STICKY
+    }
+
+    // Poll the NextDNS log for porn attempts and email the witness — the DNS-less way to get phone-side
+    // attempt alerts. No-op unless an API key + profile id are configured. One email per domain/day.
+    private fun startAttemptPoller() {
+        val apiKey = EnforcementState.nextDnsApiKey
+        val profileId = EnforcementState.nextDnsProfileId
+        if (apiKey.isNullOrBlank() || profileId.isNullOrBlank()) return
+        Thread {
+            while (running) {
+                try {
+                    for (d in NextDnsPoller.fetchDomains(apiKey, profileId)) {
+                        if (PornList.isPorn(d) && NativeConfig.shouldAlertPorn(this, d)) {
+                            Alerts.notifyAsync(this, AlertKind.PORN_ATTEMPT, d)
+                        }
+                    }
+                } catch (e: Throwable) { }
+                try { Thread.sleep(60_000) } catch (e: InterruptedException) { break }
+            }
+        }.start()
     }
 
     private fun buildNotification(): Notification {
@@ -54,21 +75,20 @@ class AccountabilityVpnService : VpnService() {
 
     private fun startTunnel() {
         if (running) return
-        // Capture DNS on BOTH IPv4 and IPv6 so DNS can't bypass NextDNS over IPv6 on a dual-stack
-        // network (audit #9). We route only the virtual DNS servers into the tunnel (not all traffic),
-        // so normal browsing still flows directly — only DNS is forced through us.
+        // DNS is NOT handled here. Routing DNS through our own DoH pump caused a fatal bootstrap loop
+        // (resolving the DoH host dns.nextdns.io needs DNS = us → every lookup failed, DNS_PROBE_
+        // FINISHED_BAD_CONFIG). NextDNS Private DNS (set on the phone) already filters ALL DNS natively
+        // and reliably, so this tunnel does NOT set a DNS server or capture DNS — it only occupies the
+        // single Android VPN slot so a bypass VPN can't start. It routes just its own /32 (nothing
+        // real), leaving all traffic + DNS to flow normally through Private DNS.
         val b = Builder()
             .setSession("Accountability")
             .addAddress("10.111.222.1", 32)
-            .addAddress("fd00:acc0:acc0::1", 128)
-            .addDnsServer("10.111.222.2")
-            .addDnsServer("fd00:acc0:acc0::2")
-            .addRoute("10.111.222.2", 32)
-            .addRoute("fd00:acc0:acc0::2", 128)
+            .addRoute("10.111.222.1", 32)
             .setBlocking(true)
         tunnel = b.establish() ?: run { stopSelf(); return }
         running = true
-        Thread { pump(tunnel!!) }.start()
+        // No pump / no DoH: nothing real is routed to us, so there is nothing to read or forward.
     }
 
     private fun pump(pfd: ParcelFileDescriptor) {

@@ -42,11 +42,15 @@ class MainActivity : FlutterActivity() {
                         val smtpUser: String = call.argument("smtpUser")!!
                         val smtpPass: String = call.argument("smtpPass")!!
                         val smtpFrom: String = call.argument("smtpFrom")!!
+                        val apiKey: String = call.argument<String>("nextDnsApiKey") ?: ""
+                        val profileId: String = call.argument<String>("nextDnsProfileId") ?: ""
                         EnforcementState.dohUrl = dohUrl
                         EnforcementState.witnessEmail = witnessEmail
+                        EnforcementState.nextDnsApiKey = apiKey
+                        EnforcementState.nextDnsProfileId = profileId
                         EnforcementState.reporter = EmailReporter(smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom)
                         // Persist so background entry points work in a fresh process (audit #2).
-                        NativeConfig.save(this, dohUrl, witnessEmail, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom)
+                        NativeConfig.save(this, dohUrl, witnessEmail, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, apiKey, profileId)
                         NativeConfig.setReleasing(this, false)   // (re)configuring means we're protecting again
                         result.success(true)
                     }
@@ -78,12 +82,18 @@ class MainActivity : FlutterActivity() {
                             result.success("Email is not configured yet — fill in the witness email and SMTP fields.")
                         } else {
                             Thread {
+                                // Catch Throwable (not just Exception) so a NoClassDefFoundError from a
+                                // stripped mail class also surfaces. Report the exception type + root
+                                // cause so the real problem (auth vs provider vs TLS vs DNS) is visible.
                                 val err = try {
                                     reporter.send(to, AlertEmail(
                                         "[Accountability] Setup test",
                                         "Success — alerting works. The witness will be emailed on tamper and porn attempts."))
                                     null   // null == success
-                                } catch (e: Exception) { e.message ?: "Unknown email error" }
+                                } catch (e: Throwable) {
+                                    val root = generateSequence(e as Throwable) { it.cause }.last()
+                                    "${e.javaClass.simpleName}: ${e.message ?: ""} | root ${root.javaClass.simpleName}: ${root.message ?: ""}"
+                                }
                                 runOnUiThread { result.success(err) }
                             }.start()
                         }

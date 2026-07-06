@@ -7,6 +7,8 @@ class EnforcementChannel {
   Future<void> configure(AgentConfig cfg) => _c.invokeMethod('configure', {
         'dohUrl': cfg.nextDnsDohUrl,
         'witnessEmail': cfg.witnessEmail,
+        'nextDnsApiKey': cfg.nextDnsApiKey ?? '',
+        'nextDnsProfileId': cfg.nextDnsProfileId ?? '',
         'smtpHost': cfg.smtp!.host, 'smtpPort': cfg.smtp!.port,
         'smtpUser': cfg.smtp!.username, 'smtpPass': cfg.smtp!.appPassword,
         'smtpFrom': cfg.smtp!.fromAddress,
