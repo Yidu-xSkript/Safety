@@ -18,6 +18,7 @@ class EnforcementChannel {
   Future<void> requestAdmin() => _c.invokeMethod('requestAdmin');
   Future<void> release() => _c.invokeMethod('release');
   Future<void> alertReleaseAttempt() => _c.invokeMethod('alertReleaseAttempt');
+  Future<void> requestUsageAccess() => _c.invokeMethod('requestUsageAccess');
 
   // Sends a real test email via the configured SMTP. Returns null on success, or an error message.
   Future<String?> testEmail() async => await _c.invokeMethod('testEmail') as String?;

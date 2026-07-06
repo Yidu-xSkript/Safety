@@ -14,6 +14,19 @@ class WatchdogWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, param
         NativeConfig.ensureLoaded(ctx)                                  // fresh process: reload config (#2)
         if (NativeConfig.isReleasing(ctx)) return Result.success()      // authorized release, stand down (#6)
 
+        // Daily app-usage report (which apps + how long), once per ~24h. Only when Usage Access is
+        // granted; otherwise silently skip (the setup step prompts for the grant).
+        if (AppUsage.hasAccess(ctx) && NativeConfig.shouldAlertWithin(ctx, "appreport", 24 * 60 * 60 * 1000L)) {
+            val to = EnforcementState.witnessEmail
+            val reporter = EnforcementState.reporter
+            if (to != null && reporter != null) {
+                try {
+                    reporter.send(to, AlertEmail("[Accountability] Phone app usage (daily)",
+                        AppUsage.report(ctx, 24 * 60 * 60 * 1000L, "24 hours")))
+                } catch (e: Throwable) { }
+            }
+        }
+
         // NextDNS on the phone = Private DNS pointed at nextdns.io. If it's off/changed, the block is
         // gone — alert. (A sandboxed app can't re-set it; WRITE_SECURE_SETTINGS isn't grantable.)
         if (nextDnsPrivateDnsMissing(ctx) && NativeConfig.shouldAlertOncePerDay(ctx, "dns_off")) {
