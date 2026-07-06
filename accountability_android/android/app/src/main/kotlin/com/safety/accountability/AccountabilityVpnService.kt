@@ -49,7 +49,9 @@ class AccountabilityVpnService : VpnService() {
         Thread {
             while (running) {
                 try {
-                    for (d in NextDnsPoller.fetch(apiKey, profileId, limit = 100, field = "domain")) {
+                    // Only the last ~2 min of log (so old queries don't re-fire), matched by ROOT domain
+                    // so subdomain variants of one site collapse to a single per-site alert.
+                    for (d in NextDnsPoller.fetch(apiKey, profileId, from = "-2m", limit = 200, field = "root")) {
                         if (PornList.isPorn(d) && NativeConfig.shouldAlertPorn(this, d)) {
                             Alerts.notifyAsync(this, AlertKind.PORN_ATTEMPT, d)
                         }
