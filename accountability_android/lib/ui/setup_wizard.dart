@@ -89,6 +89,15 @@ class _SetupWizardState extends State<SetupWizard> {
           decoration: const InputDecoration(
               labelText: 'NextDNS API key (optional — enables porn-attempt emails from the phone)')),
       const Divider(),
+      OutlinedButton(
+        onPressed: () => EnforcementChannel().requestUsageAccess(),
+        child: const Text('Grant app-usage access (for the daily app report)'),
+      ),
+      const Padding(
+        padding: EdgeInsets.only(top: 4, bottom: 8),
+        child: Text('Flip the toggle for this app on the screen that opens, then come back.',
+            style: TextStyle(fontSize: 12, color: Colors.black54)),
+      ),
       TextField(controller: _pin, obscureText: true, keyboardType: TextInputType.number,
         decoration: const InputDecoration(labelText: 'Witness PIN — 6+ digits (you set, keep secret)')),
       if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),

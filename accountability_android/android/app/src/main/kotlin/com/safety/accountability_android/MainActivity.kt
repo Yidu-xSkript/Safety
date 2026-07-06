@@ -9,6 +9,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.provider.Settings
 import com.safety.accountability.AccountabilityVpnService
 import com.safety.accountability.AdminReceiver
 import com.safety.accountability.AdminState
@@ -97,6 +98,10 @@ class MainActivity : FlutterActivity() {
                                 runOnUiThread { result.success(err) }
                             }.start()
                         }
+                    }
+                    "requestUsageAccess" -> {   // opens the system Usage-access screen for the app-usage report
+                        try { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } catch (e: Exception) {}
+                        result.success(true)
                     }
                     "status" -> {   // REAL protection state so the status screen can't show a false "active" (#12)
                         result.success(mapOf(
