@@ -44,6 +44,11 @@ $lastHostsLockLog = [datetime]::MinValue   # rate-limit the "hosts locked by ano
 # Suppress those (but still absorb the change) while within the window off the install.stamp's mtime.
 $installTime = if (Test-Path $installStampFile) { (Get-Item $installStampFile).LastWriteTime } else { Get-Date }
 $graceMinutes = if ($null -ne $cfg.postInstallGraceMinutes) { [int]$cfg.postInstallGraceMinutes } else { 5 }
+# Detect the NextDNS app being disabled on the PC (the porn block relies on it). Checked periodically
+# via NextDNS's test endpoint; alerts the witness once/day if DNS stops going through NextDNS.
+$nextDnsCheckEnabled = -not ($cfg.nextDnsCheckEnabled -eq $false)
+$nextDnsCheckSeconds = if ($cfg.nextDnsCheckSeconds) { [int]$cfg.nextDnsCheckSeconds } else { 300 }
+$lastNextDnsActiveCheck = [datetime]::MinValue
 
 # Porn blocklist (VPN-proof via the hosts file). Downloaded + refreshed daily by the agent.
 $hostsPath   = "$env:WINDIR\System32\drivers\etc\hosts"
@@ -426,6 +431,24 @@ while ($true) {
                     Write-AgentLog "Instant alert: adult site ATTEMPTED (sinkhole/VPN-proof) ($dom); witness notified."
                     $pornAlerted[$k] = $true
                 }
+            }
+        }
+    }
+
+    # --- NextDNS active check: is the PC's DNS still going through NextDNS? Catches the NextDNS app
+    # being disabled/removed (the porn block relies on it). Rate-limited; $null result = no internet,
+    # which must NOT alert. Once/day per the dedup. ---
+    if ($nextDnsCheckEnabled -and ((Get-Date) - $lastNextDnsActiveCheck).TotalSeconds -ge $nextDnsCheckSeconds) {
+        $lastNextDnsActiveCheck = Get-Date
+        $nextDnsActive = Test-NextDnsActive
+        if (($nextDnsActive -eq $false) -and -not $firstLoop) {
+            $streak.Flagged = $true
+            $k = "NextDnsDisabled|$day"
+            if (-not $tamperAlerted[$k]) {
+                $al = Format-AlertEmail -Kind "NextDnsDisabled" -Detail ""
+                Send-WitnessEmail -Smtp $cfg.smtp -To $cfg.witnessEmail -Subject $al.Subject -Body $al.Body
+                Write-AgentLog "NextDNS not active on this PC (test.nextdns.io status not ok); witness alerted."
+                $tamperAlerted[$k] = $true
             }
         }
     }

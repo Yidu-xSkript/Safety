@@ -36,6 +36,19 @@ function Set-DohFirewallBlock {
     }
 }
 
+function Test-NextDnsActive {
+    # Is this machine's DNS actually going through NextDNS right now? Uses NextDNS's own test endpoint,
+    # which returns status "ok" ONLY when your resolver is NextDNS (regardless of how it's configured —
+    # the DoH app, DNS servers, etc.). This catches the friend disabling the NextDNS app entirely.
+    # Returns: $true = NextDNS active; $false = NOT going through NextDNS (disabled/bypassed);
+    # $null = the check itself couldn't run (no internet) — caller must NOT alert on $null.
+    param([int]$TimeoutSec = 10)
+    try {
+        $r = Invoke-RestMethod -Uri "https://test.nextdns.io/" -TimeoutSec $TimeoutSec -ErrorAction Stop
+        if ("$($r.status)" -eq "ok") { return $true } else { return $false }
+    } catch { return $null }
+}
+
 function Test-NextDnsReachable {
     # Verify at least one NextDNS IP actually answers DNS over UDP:53 (the real DNS path). Sends a
     # raw DNS query for example.com and waits for any reply. This deliberately avoids
@@ -184,4 +197,4 @@ function Set-HostsBlock {
     return $false    # already in sync, nothing to write
 }
 
-Export-ModuleMember -Function Set-NextDnsLock, Set-DohFirewallBlock, Disable-VpnAdapter, Set-HostsBlock, Set-IncognitoDisabled, Select-TorProcess, Stop-TorBrowser, Test-NextDnsReachable, Remove-DohFirewallBlock, Reset-DnsToAuto
+Export-ModuleMember -Function Set-NextDnsLock, Set-DohFirewallBlock, Disable-VpnAdapter, Set-HostsBlock, Set-IncognitoDisabled, Select-TorProcess, Stop-TorBrowser, Test-NextDnsReachable, Test-NextDnsActive, Remove-DohFirewallBlock, Reset-DnsToAuto
