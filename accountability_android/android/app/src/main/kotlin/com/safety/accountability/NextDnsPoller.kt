@@ -15,16 +15,16 @@ object NextDnsPoller {
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
-    // Queried names (lower-cased) from the log. `from` is an optional relative window ("-1h") and
-    // `field` picks "domain" (exact query, for porn matching) or "root" (registrable domain, for a
-    // readable digest). Empty on any error (fail-quiet). Runs over the normal network + Private DNS
-    // (the VPN no longer captures DNS), so there is no bootstrap loop.
-    fun fetch(apiKey: String, profileId: String, from: String? = null, limit: Int = 100, field: String = "domain"): List<String> {
+    // Queried names (lower-cased) from the log, most-recent first. `field` picks "domain" (exact query,
+    // for porn matching) or "root" (registrable domain, for a readable digest). Empty on any error
+    // (fail-quiet). Runs over the normal network + Private DNS (the VPN no longer captures DNS), so
+    // there is no bootstrap loop.
+    // ponytail: no time window — we take the most recent `limit` rows like the proven Windows call. A
+    // relative `from=-1h` made the API return nothing; time-windowing lives in `limit` + per-domain
+    // dedup instead. If a busier profile ever overflows `limit` inside an hour, bump limit.
+    fun fetch(apiKey: String, profileId: String, limit: Int = 100, field: String = "domain"): List<String> {
         return try {
-            val url = buildString {
-                append("https://api.nextdns.io/profiles/$profileId/logs?limit=$limit")
-                if (!from.isNullOrBlank()) append("&from=$from")
-            }
+            val url = "https://api.nextdns.io/profiles/$profileId/logs?limit=$limit"
             val req = Request.Builder().url(url).header("X-Api-Key", apiKey).build()
             http.newCall(req).execute().use { resp ->
                 val body = resp.body?.string() ?: return emptyList()
