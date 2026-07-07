@@ -9,6 +9,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.Uri
+import android.os.PowerManager
 import android.provider.Settings
 import com.safety.accountability.AccountabilityVpnService
 import com.safety.accountability.AdminReceiver
@@ -101,6 +103,18 @@ class MainActivity : FlutterActivity() {
                     }
                     "requestUsageAccess" -> {   // opens the system Usage-access screen for the app-usage report
                         try { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } catch (e: Exception) {}
+                        result.success(true)
+                    }
+                    "requestBatteryExemption" -> {   // keep the service alive under Doze
+                        val pm = getSystemService(POWER_SERVICE) as PowerManager
+                        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                            try {
+                                @android.annotation.SuppressLint("BatteryLife")
+                                val i = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                                    .setData(Uri.parse("package:$packageName"))
+                                startActivity(i)
+                            } catch (e: Exception) {}
+                        }
                         result.success(true)
                     }
                     "status" -> {   // REAL protection state so the status screen can't show a false "active" (#12)

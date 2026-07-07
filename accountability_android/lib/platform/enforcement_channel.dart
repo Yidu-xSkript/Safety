@@ -19,6 +19,7 @@ class EnforcementChannel {
   Future<void> release() => _c.invokeMethod('release');
   Future<void> alertReleaseAttempt() => _c.invokeMethod('alertReleaseAttempt');
   Future<void> requestUsageAccess() => _c.invokeMethod('requestUsageAccess');
+  Future<void> requestBatteryExemption() => _c.invokeMethod('requestBatteryExemption');
 
   // Sends a real test email via the configured SMTP. Returns null on success, or an error message.
   Future<String?> testEmail() async => await _c.invokeMethod('testEmail') as String?;

@@ -36,7 +36,38 @@ class AccountabilityVpnService : VpnService() {
         startForeground(NOTIF_ID, buildNotification())
         startTunnel()
         startAttemptPoller()
+        startHourlyReport()
         return START_STICKY
+    }
+
+    // Email ONE combined "Phone activity (hourly)" report from the always-on foreground service —
+    // reliable, unlike WorkManager which Android throttles/kills under Doze. App usage (if Usage Access
+    // granted) + domain digest (if a NextDNS API key is set); sends nothing if neither is available.
+    private fun startHourlyReport() {
+        Thread {
+            while (running) {
+                try { Thread.sleep(3_600_000L) } catch (e: InterruptedException) { break }   // 1 hour
+                if (!running) break
+                try {
+                    val to = EnforcementState.witnessEmail
+                    val reporter = EnforcementState.reporter
+                    if (to != null && reporter != null) {
+                        val sb = StringBuilder()
+                        if (AppUsage.hasAccess(this)) sb.append(AppUsage.report(this, 3_600_000L, "hour"))
+                        val apiKey = EnforcementState.nextDnsApiKey
+                        val profileId = EnforcementState.nextDnsProfileId
+                        if (!apiKey.isNullOrBlank() && !profileId.isNullOrBlank()) {
+                            if (sb.isNotEmpty()) sb.append("\n\n")
+                            sb.append(NextDnsReport.format(
+                                NextDnsPoller.fetch(apiKey, profileId, from = "-1h", limit = 1000, field = "root"), "hour"))
+                        }
+                        if (sb.isNotEmpty()) {
+                            reporter.send(to, AlertEmail("[Accountability] Phone activity (hourly)", sb.toString()))
+                        }
+                    }
+                } catch (e: Throwable) { }
+            }
+        }.start()
     }
 
     // Poll the NextDNS log for porn attempts and email the witness — the DNS-less way to get phone-side

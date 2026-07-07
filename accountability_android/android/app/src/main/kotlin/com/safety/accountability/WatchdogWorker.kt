@@ -14,29 +14,6 @@ class WatchdogWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, param
         NativeConfig.ensureLoaded(ctx)                                  // fresh process: reload config (#2)
         if (NativeConfig.isReleasing(ctx)) return Result.success()      // authorized release, stand down (#6)
 
-        // Hourly ONE activity email: app usage (if Usage Access granted) + domain digest (if a NextDNS
-        // API key is set), combined. Once per ~hour (watchdog runs every 15 min). Skips whichever half
-        // isn't available; sends nothing if neither is.
-        if (NativeConfig.shouldAlertWithin(ctx, "hourlyreport", 60 * 60 * 1000L)) {
-            val to = EnforcementState.witnessEmail
-            val reporter = EnforcementState.reporter
-            if (to != null && reporter != null) {
-                val sb = StringBuilder()
-                if (AppUsage.hasAccess(ctx)) sb.append(AppUsage.report(ctx, 60 * 60 * 1000L, "hour"))
-                val apiKey = EnforcementState.nextDnsApiKey
-                val profileId = EnforcementState.nextDnsProfileId
-                if (!apiKey.isNullOrBlank() && !profileId.isNullOrBlank()) {
-                    if (sb.isNotEmpty()) sb.append("\n\n")
-                    val roots = NextDnsPoller.fetch(apiKey, profileId, from = "-1h", limit = 1000, field = "root")
-                    sb.append(NextDnsReport.format(roots, "hour"))
-                }
-                if (sb.isNotEmpty()) {
-                    try { reporter.send(to, AlertEmail("[Accountability] Phone activity (hourly)", sb.toString())) }
-                    catch (e: Throwable) { }
-                }
-            }
-        }
-
         // NextDNS on the phone = Private DNS pointed at nextdns.io. If it's off/changed, the block is
         // gone — alert. (A sandboxed app can't re-set it; WRITE_SECURE_SETTINGS isn't grantable.)
         if (nextDnsPrivateDnsMissing(ctx) && NativeConfig.shouldAlertOncePerDay(ctx, "dns_off")) {
