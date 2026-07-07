@@ -59,7 +59,7 @@ class AccountabilityVpnService : VpnService() {
                         if (!apiKey.isNullOrBlank() && !profileId.isNullOrBlank()) {
                             if (sb.isNotEmpty()) sb.append("\n\n")
                             sb.append(NextDnsReport.format(
-                                NextDnsPoller.fetch(apiKey, profileId, from = "-1h", limit = 1000, field = "root"), "hour"))
+                                NextDnsPoller.fetch(apiKey, profileId, limit = 1000, field = "root"), "hour"))
                         }
                         if (sb.isNotEmpty()) {
                             reporter.send(to, AlertEmail("[Accountability] Phone activity (hourly)", sb.toString()))
@@ -79,9 +79,10 @@ class AccountabilityVpnService : VpnService() {
         Thread {
             while (running) {
                 try {
-                    // Only the last ~2 min of log (so old queries don't re-fire), matched by ROOT domain
-                    // so subdomain variants of one site collapse to a single per-site alert.
-                    for (d in NextDnsPoller.fetch(apiKey, profileId, from = "-2m", limit = 200, field = "root")) {
+                    // Most-recent 200 log rows, matched by ROOT domain so subdomain variants of one site
+                    // collapse to a single per-site alert. Per-domain 5-min dedup (shouldAlertPorn) — not a
+                    // time-window param — is what stops old queries re-firing.
+                    for (d in NextDnsPoller.fetch(apiKey, profileId, limit = 200, field = "root")) {
                         if (PornList.isPorn(d) && NativeConfig.shouldAlertPorn(this, d)) {
                             Alerts.notifyAsync(this, AlertKind.PORN_ATTEMPT, d)
                         }
