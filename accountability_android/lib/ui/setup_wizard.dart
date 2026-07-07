@@ -90,8 +90,17 @@ class _SetupWizardState extends State<SetupWizard> {
               labelText: 'NextDNS API key (optional — enables porn-attempt emails from the phone)')),
       const Divider(),
       OutlinedButton(
+        onPressed: () => EnforcementChannel().requestBatteryExemption(),
+        child: const Text('1. Allow to run in background (battery) — IMPORTANT'),
+      ),
+      const Padding(
+        padding: EdgeInsets.only(top: 4, bottom: 8),
+        child: Text('Tap and choose "Allow". Without this, reports and alerts stop when the phone idles.',
+            style: TextStyle(fontSize: 12, color: Colors.black54)),
+      ),
+      OutlinedButton(
         onPressed: () => EnforcementChannel().requestUsageAccess(),
-        child: const Text('Grant app-usage access (for the daily app report)'),
+        child: const Text('2. Grant app-usage access (for the hourly app report)'),
       ),
       const Padding(
         padding: EdgeInsets.only(top: 4, bottom: 8),
