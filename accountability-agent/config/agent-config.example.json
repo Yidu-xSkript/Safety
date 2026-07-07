@@ -3,7 +3,7 @@
   "witnessEmail": "friend@example.com",
   "supporterEmail": null,
   "supporterMilestones": [7, 30, 90],
-  "approvedVpnIps": ["181.214.9.54"],
+  "approvedVpnIps": ["198.51.100.10"],
   "nextDnsIps": ["45.90.28.0", "45.90.30.0"],
   "reportIntervalMinutes": 60,
   "heartbeatStaleSeconds": 180,

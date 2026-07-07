@@ -10,7 +10,7 @@
 
 A porn blocker with accountability. Block adult content, and make any attempt to reach it — including in incognito or over a VPN — visible to a trusted witness. The blocker stops the easy path; the accountability layer catches the rest and reports it. The model is not an unbreakable wall, it is a room where nothing can be done unseen.
 
-Built for **two peers who are each other's witness** — the author and a friend, both fighting the same thing. Each runs the tool on their own devices; each is the other's accountability partner. Structured so the reporting layer can later be swapped from email to a hosted backend + dashboard and offered to others.
+Built for **two peers who are each other's witness** — two friends both fighting the same thing. Each runs the tool on their own devices; each is the other's accountability partner. Structured so the reporting layer can later be swapped from email to a hosted backend + dashboard and offered to others.
 
 ---
 
@@ -18,7 +18,7 @@ Built for **two peers who are each other's witness** — the author and a friend
 
 Symmetric and reciprocal. Two people, each playing both roles for the pair.
 
-### 2.1 Protected User A (author)
+### 2.1 Protected User A (primary user)
 Devices: **Windows PC + iPhone.** Uses a **standard, non-admin** Windows account. Cannot disable their own enforcement — User B holds the secrets.
 
 ### 2.2 Protected User B (friend)
@@ -52,7 +52,7 @@ Identical on both users' PCs. Runs as a **SYSTEM service / scheduled task** a st
    - Reaction is **event-driven** (Windows network-change events) plus a short poll, so the tunnel is torn down within ~a second or two. A brief pre-detection window exists and is accepted.
    - The approved endpoint and the plain (no-VPN) connection are never touched.
    - Recovery from any misfire is via the Witness (admin) — by design, the standard user cannot re-enable a disabled adapter alone.
-   - **Approved endpoint (User A / author):** `181.214.9.54` — the author's work VPN gateway to the New York database server; the only route to that DB. Allowed, no alert.
+   - **Approved endpoint (example):** `198.51.100.10` — an allowlisted work VPN gateway (e.g. the only route to an internal server). Allowed, no alert.
    - Any VPN dialing a **different** endpoint → reported instantly.
    - The report still logs *that* the approved VPN was active and when, so off-pattern use (e.g. 2am weekend) is visible even though the traffic itself isn't.
    - **Full-tunnel caveat:** while a full-tunnel VPN is active, NextDNS cannot see that traffic (the corporate filter guards it instead). Prefer **split-tunnel** for the work VPN so NextDNS keeps filtering all non-work browsing.
@@ -94,7 +94,7 @@ On iPhone the witness sees **which sites/domains** were accessed but **NOT the a
 | Block porn sites | NextDNS filtering | All |
 | Witness sees history | NextDNS query log (Witness owns the account); Windows adds window titles (search terms). **iPhone = domains only, no search terms** | All |
 | Works in incognito | DNS is below the browser; private mode can't hide it | All |
-| VPN bypass | Windows agent **disables** any unapproved VPN (Option A) + alerts Witness; approved endpoint `181.214.9.54` exempt | Windows |
+| VPN bypass | Windows agent **disables** any unapproved VPN (Option A) + alerts Witness; approved endpoint `198.51.100.10` exempt | Windows |
 | Can't uninstall / tamper | SYSTEM service + standard-user account + tamper alert + dead-man's switch | Windows |
 | Phone coverage | Locked NextDNS (+ Screen Time / Digital Wellbeing) | iPhone / Android |
 | Social media / apps | Per-app policy: report-only / time-box / block (set by witness) | Windows + phones |
@@ -141,7 +141,7 @@ The two users run **the same build**; only configuration differs (who reports to
 ## 8. Known limitations (stated honestly)
 
 - **Collusion / mutual leniency.** Two people fighting the same thing as each other's *only* witness can drift into going easy on each other on bad weeks. Inherent to a pure two-person peer model (chosen deliberately). A shared third anchor was considered and declined; revisit if drift shows up.
-- **VPN bypass is actively killed, not just reported (Option A kill-switch).** Any unapproved VPN adapter is disabled within ~1–2s and reported, so a VPN can't stay up long enough to be useful. Residual gaps: (a) the brief pre-detection window, and (b) the **approved work VPN (`181.214.9.54`)** — a deliberate allowlisted blind spot necessary for the author's job; if full-tunnel, the corporate filter guards that traffic.
+- **VPN bypass is actively killed, not just reported (Option A kill-switch).** Any unapproved VPN adapter is disabled within ~1–2s and reported, so a VPN can't stay up long enough to be useful. Residual gaps: (a) the brief pre-detection window, and (b) any **approved work VPN (e.g. `198.51.100.10`)** — a deliberate allowlisted blind spot for a required work VPN; if full-tunnel, the corporate filter guards that traffic.
 - **iOS allows no monitoring agent, and shows domains but not search terms.** iPhone accountability = NextDNS domain log (incognito-proof) + Screen Time reports. Actual search queries/full URLs are not visible on iPhone (HTTPS-encrypted; iOS forbids the window-title capture Windows uses, and blocks screenshot/TLS-decrypt monitoring). No VPN kill on iOS. Android can go further with a future custom app.
 - **A determined user with a second/unmanaged device defeats any of this.** The system assumes the user *wants* to be caught — inherent to the whole category.
 - **Screenshots deliberately excluded** in favor of URL history + active-window titles: lighter, more private, still incognito-proof via NextDNS.

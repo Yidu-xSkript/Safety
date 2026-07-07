@@ -100,7 +100,7 @@ spool/
   "role": "protected-user-A",
   "witnessEmail": "friend@example.com",
   "supporterEmail": null,
-  "approvedVpnIps": ["181.214.9.54"],
+  "approvedVpnIps": ["198.51.100.10"],
   "nextDnsIps": ["45.90.28.0", "45.90.30.0"],
   "reportIntervalMinutes": 60,
   "heartbeatStaleSeconds": 180,
@@ -222,14 +222,14 @@ Add to `tests/Detection.Tests.ps1`:
 Import-Module "$PSScriptRoot/../src/Detection.psm1" -Force
 
 Describe "Test-UnapprovedVpn" {
-    $approved = @("181.214.9.54")
+    $approved = @("198.51.100.10")
 
     It "returns false when no VPN adapter is present" {
         Test-UnapprovedVpn -VpnAdapterPresent $false -ActiveRemoteIps @("8.8.8.8") -ApprovedIps $approved |
             Should Be $false
     }
     It "returns false when the VPN connects to an approved endpoint" {
-        Test-UnapprovedVpn -VpnAdapterPresent $true -ActiveRemoteIps @("181.214.9.54","1.1.1.1") -ApprovedIps $approved |
+        Test-UnapprovedVpn -VpnAdapterPresent $true -ActiveRemoteIps @("198.51.100.10","1.1.1.1") -ApprovedIps $approved |
             Should Be $false
     }
     It "returns true when a VPN is up and no approved endpoint is in use" {
@@ -795,7 +795,7 @@ Log in as the standard user account and verify each:
 - [ ] Porn test domain is blocked in a normal window **and** in incognito (NextDNS layer).
 - [ ] The blocked attempt appears in the witness's NextDNS dashboard.
 - [ ] Connect an **unapproved** VPN → it is disabled within `vpnPollSeconds`; witness gets the "Unapproved VPN killed" email.
-- [ ] Connect the **approved** VPN (`181.214.9.54`) → it stays up, no email.
+- [ ] Connect the **approved** VPN (`198.51.100.10`) → it stays up, no email.
 - [ ] Kill the monitor task (`Stop-ScheduledTask` as admin to simulate; a standard user cannot) → within `heartbeatStaleSeconds` the witness gets the "Tamper / silence" email.
 - [ ] As the standard user, try `Unregister-ScheduledTask AccountabilityEnforcer` → **access denied**.
 - [ ] Wait one report interval → witness receives the activity report with window titles; spool clears.
@@ -1037,6 +1037,6 @@ git commit -m "docs: app-policy acceptance checks"
 
 ## Self-review notes
 
-- **Spec coverage:** Block (Task 0/NextDNS) ✅ · witness sees history (Task 0/NextDNS) ✅ · incognito (Task 0 + window titles Task 7) ✅ · VPN kill + allowlist `181.214.9.54` (Tasks 3,4,9) ✅ · tamper/dead-man (Tasks 5,10) ✅ · phones (Task 0) ✅ · app policies report-only/time-box/block (Addendum A) ✅ · mutual two-person (Task 12 Step 2) ✅ · Supporter mode — **deferred** (config field `supporterEmail` reserved; no task) — noted below.
+- **Spec coverage:** Block (Task 0/NextDNS) ✅ · witness sees history (Task 0/NextDNS) ✅ · incognito (Task 0 + window titles Task 7) ✅ · VPN kill + allowlist `198.51.100.10` (Tasks 3,4,9) ✅ · tamper/dead-man (Tasks 5,10) ✅ · phones (Task 0) ✅ · app policies report-only/time-box/block (Addendum A) ✅ · mutual two-person (Task 12 Step 2) ✅ · Supporter mode — **deferred** (config field `supporterEmail` reserved; no task) — noted below.
 - **Deferred vs spec (flagged):** (a) browser-history-*file* reader — URL history comes from NextDNS instead; (b) Supporter/encouragement-only emails — field reserved, build when a partner is actually added; (c) event-driven VPN trigger — v1 uses a `vpnPollSeconds` short poll instead of network-change events. All three are additive and don't change the interfaces above.
 - **Type consistency:** config field names (`approvedVpnIps`, `nextDnsIps`, `heartbeatStaleSeconds`, `reportIntervalMinutes`, `vpnPollSeconds`, `smtp.*`) are identical across config example, Common, enforcer, reporter. Function names match across modules and callers.

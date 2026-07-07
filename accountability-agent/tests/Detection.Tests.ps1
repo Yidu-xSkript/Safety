@@ -33,13 +33,13 @@ Describe "Password hashing (uninstall password)" {
 }
 
 Describe "Test-UnapprovedVpn" {
-    $approved = @("181.214.9.54")
+    $approved = @("198.51.100.10")
 
     It "returns false when no VPN adapter is present" {
         Test-UnapprovedVpn -VpnAdapterPresent $false -ActiveRemoteIps @("8.8.8.8") -ApprovedIps $approved | Should Be $false
     }
     It "returns false when the VPN connects to an approved endpoint" {
-        Test-UnapprovedVpn -VpnAdapterPresent $true -ActiveRemoteIps @("181.214.9.54","1.1.1.1") -ApprovedIps $approved | Should Be $false
+        Test-UnapprovedVpn -VpnAdapterPresent $true -ActiveRemoteIps @("198.51.100.10","1.1.1.1") -ApprovedIps $approved | Should Be $false
     }
     It "returns true when a VPN is up and no approved endpoint is in use" {
         Test-UnapprovedVpn -VpnAdapterPresent $true -ActiveRemoteIps @("203.0.113.9") -ApprovedIps $approved | Should Be $true
