@@ -37,6 +37,18 @@ object NativeConfig {
         }
     }
 
+    // When the last digest went out. Persisted so a service restart doesn't lose the window it covers.
+    // First call stamps "now", so a fresh install waits for the next 07:30/00:00 rather than firing at once.
+    fun lastDigestMs(ctx: Context): Long {
+        val p = prefs(ctx)
+        val t = p.getLong("digestAt", 0L)
+        if (t > 0L) return t
+        val now = System.currentTimeMillis()
+        p.edit().putLong("digestAt", now).apply()
+        return now
+    }
+    fun markDigestSent(ctx: Context, ms: Long) = prefs(ctx).edit().putLong("digestAt", ms).apply()
+
     // Release-in-progress flag: an authorized PIN release removes admin + stops the VPN, which would
     // otherwise fire false tamper alerts and let the watchdog re-arm protection (audit bug #6).
     fun setReleasing(ctx: Context, v: Boolean) = prefs(ctx).edit().putBoolean("releasing", v).apply()

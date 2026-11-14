@@ -6,10 +6,6 @@ import android.graphics.Rect
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 
 // Reads the chat/channel TITLE from Telegram's toolbar so the hourly witness report can name what was
 // opened. Telegram encrypts everything under its own pinned-key MTProto and multiplexes every channel
@@ -69,7 +65,7 @@ class TelegramWatch : AccessibilityService() {
         private const val PREFS = "aa_telegram_watch"
         private const val KEY_LOG = "visits"
         private const val KEY_EVER = "everEnabled"
-        private const val MAX_LINES = 300
+        private const val MAX_LINES = 1000
 
         private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -90,22 +86,16 @@ class TelegramWatch : AccessibilityService() {
             return on.contains("${ctx.packageName}/${TelegramWatch::class.java.name}")
         }
 
-        // Section for the hourly witness email. Drops (and prunes) anything older than the window, so
-        // the log can't grow unbounded between reports. Empty string when the watch isn't granted.
-        @Synchronized fun report(ctx: Context, windowMs: Long, windowLabel: String): String {
-            if (!isEnabled(ctx)) return ""
+        // (epoch ms, title) visits inside the window, oldest first, for the digest. Prunes anything older
+        // so the log can't grow unbounded between digests. Still returns what was logged if the watch
+        // was revoked since — the digest flags the revocation separately.
+        @Synchronized fun visits(ctx: Context, windowMs: Long): List<Pair<Long, String>> {
             val p = prefs(ctx)
             val recent = ChatTitle.within(
                 ChatTitle.parse((p.getString(KEY_LOG, "") ?: "").split("\n")),
                 System.currentTimeMillis(), windowMs)
             p.edit().putString(KEY_LOG, recent.joinToString("\n") { "${it.first}\t${it.second}" }).apply()
-            val head = "Telegram chats opened — last $windowLabel"
-            if (recent.isEmpty()) return "$head\nNone."
-            // EAT, to match the report schedule — NOT the device timezone, which is user-editable and
-            // would otherwise make the timestamps disagree with the windows the report is sent in.
-            val fmt = SimpleDateFormat("HH:mm", Locale.US)
-            fmt.timeZone = TimeZone.getTimeZone("Africa/Nairobi")
-            return "$head\n\n" + recent.joinToString("\n") { "${fmt.format(Date(it.first))}  ${it.second}" }
+            return recent
         }
     }
 }

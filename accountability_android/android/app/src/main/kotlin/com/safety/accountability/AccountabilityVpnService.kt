@@ -40,50 +40,41 @@ class AccountabilityVpnService : VpnService() {
         return START_STICKY
     }
 
-    // Send a combined "Phone activity" report from the always-on foreground service — reliable, unlike
-    // WorkManager which Android throttles/kills under Doze. Fires every 15 minutes, but only inside the
-    // agreed EAT windows (04:00–07:30 and 15:00–00:00; see ReportSchedule). Each report covers
-    // everything since the PREVIOUS one, so activity during the quiet hours isn't lost — it lands in
-    // the first report of the next window.
+    // Twice a day (07:30 and 00:00 EAT; see ReportSchedule) send ONE short digest covering everything
+    // since the previous one. Runs from the always-on foreground service — reliable, unlike WorkManager
+    // which Android throttles/kills under Doze. Wakes every 15 minutes just to check if one is due; the
+    // last-sent time is persisted, so a failed send retries on the next tick and a restart loses nothing.
     private fun startReports() {
         Thread {
-            var lastReportMs = System.currentTimeMillis()
             while (running) {
-                val wait = ReportSchedule.msUntilNextTick(System.currentTimeMillis())
-                try { Thread.sleep(wait) } catch (e: InterruptedException) { break }
+                try { Thread.sleep(ReportSchedule.msUntilNextTick(System.currentTimeMillis())) }
+                catch (e: InterruptedException) { break }
                 if (!running) break
-                val tick = System.currentTimeMillis()
-                if (!ReportSchedule.isReportTime(tick)) continue
-                val span = (tick - lastReportMs)
-                    .coerceIn(ReportSchedule.TICK_MS, ReportSchedule.MAX_LOOKBACK_MS)
-                // Only advance the mark on a real send, so a failed/unconfigured tick doesn't silently
-                // swallow the period it covered — the next report picks it up.
-                try { if (sendReport(span, ReportSchedule.label(span))) lastReportMs = tick }
+                val now = System.currentTimeMillis()
+                val last = NativeConfig.lastDigestMs(this)
+                if (!ReportSchedule.isDue(now, last)) continue
+                val from = maxOf(last, now - ReportSchedule.MAX_LOOKBACK_MS)
+                try { if (sendDigest(from, now)) NativeConfig.markDigestSent(this, now) }
                 catch (e: Throwable) { }
             }
         }.start()
     }
 
-    // App usage (if Usage Access granted) + Telegram chat names (if the watch is on) + NextDNS domain
-    // digest (if an API key is set). Returns true only if a message actually went out.
-    private fun sendReport(windowMs: Long, windowLabel: String): Boolean {
+    // Returns true only if a message actually went out.
+    private fun sendDigest(from: Long, to: Long): Boolean {
         val reporter = EnforcementState.reporter ?: return false
-        val sb = StringBuilder()
-        if (AppUsage.hasAccess(this)) sb.append(AppUsage.report(this, windowMs, windowLabel))
-        val chats = TelegramWatch.report(this, windowMs, windowLabel)
-        if (chats.isNotEmpty()) {
-            if (sb.isNotEmpty()) sb.append("\n\n")
-            sb.append(chats)
-        }
+        val span = to - from
         val apiKey = EnforcementState.nextDnsApiKey
         val profileId = EnforcementState.nextDnsProfileId
-        if (!apiKey.isNullOrBlank() && !profileId.isNullOrBlank()) {
-            if (sb.isNotEmpty()) sb.append("\n\n")
-            sb.append(NextDnsReport.format(
-                NextDnsPoller.fetch(apiKey, profileId, limit = 1000, field = "root"), windowLabel))
-        }
-        if (sb.isEmpty()) return false
-        reporter.send(AlertEmail("[Accountability] Phone activity ($windowLabel)", sb.toString()))
+        val domains = if (apiKey.isNullOrBlank() || profileId.isNullOrBlank()) emptyList()
+            else NextDnsPoller.fetch(apiKey, profileId, limit = 1000, field = "root")
+        val text = Digest.build(
+            ReportSchedule.range(from, to),
+            AppUsage.usage(this, span),
+            TelegramWatch.visits(this, span),
+            TelegramWatch.wasEverEnabled(this) && !TelegramWatch.isEnabled(this),
+            domains)
+        reporter.send(AlertEmail("[Accountability] Phone digest", text))
         return true
     }
 

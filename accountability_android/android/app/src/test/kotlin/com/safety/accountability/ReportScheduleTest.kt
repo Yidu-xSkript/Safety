@@ -8,26 +8,33 @@ class ReportScheduleTest {
     // 1_755_216_000_000 is 2025-08-15 00:00 UTC; back off 3h to land on EAT midnight, then build
     // EAT wall-clock times from there. Only the time-of-day matters to these assertions.
     private val eatMidnight = 1_755_216_000_000L - ReportSchedule.EAT_OFFSET_MS
-    private fun eat(h: Int, m: Int = 0) = eatMidnight + h * 3_600_000L + m * 60_000L
+    private fun eat(h: Int, m: Int = 0, day: Int = 0) =
+        eatMidnight + day * ReportSchedule.DAY_MS + h * 3_600_000L + m * 60_000L
 
-    @Test fun morningWindowIsInclusiveOfBothEnds() {
-        assertTrue(ReportSchedule.isReportTime(eat(4, 0)))     // 04:00 opens it
-        assertTrue(ReportSchedule.isReportTime(eat(6, 15)))
-        assertTrue(ReportSchedule.isReportTime(eat(7, 30)))    // 07:30 still in
+    @Test fun boundaryIsTheLatestOfMidnightAndSevenThirty() {
+        assertEquals(eat(0, 0), ReportSchedule.lastBoundary(eat(0, 0)))
+        assertEquals(eat(0, 0), ReportSchedule.lastBoundary(eat(7, 29)))
+        assertEquals(eat(7, 30), ReportSchedule.lastBoundary(eat(7, 30)))
+        assertEquals(eat(7, 30), ReportSchedule.lastBoundary(eat(23, 59)))
     }
 
-    @Test fun eveningWindowRunsFromThreePmToMidnight() {
-        assertTrue(ReportSchedule.isReportTime(eat(15, 0)))
-        assertTrue(ReportSchedule.isReportTime(eat(21, 45)))
-        assertTrue(ReportSchedule.isReportTime(eat(23, 45)))   // last tick before midnight
+    @Test fun noDigestUntilABoundaryPasses() {
+        val sentAtMidnight = eat(0, 5)
+        assertFalse(ReportSchedule.isDue(eat(3, 0), sentAtMidnight))
+        assertFalse(ReportSchedule.isDue(eat(7, 29), sentAtMidnight))
+        assertTrue(ReportSchedule.isDue(eat(7, 30), sentAtMidnight))
     }
 
-    @Test fun quietHoursSendNothing() {
-        assertFalse(ReportSchedule.isReportTime(eat(0, 0)))    // midnight closes the evening window
-        assertFalse(ReportSchedule.isReportTime(eat(3, 45)))   // just before the morning window
-        assertFalse(ReportSchedule.isReportTime(eat(7, 45)))   // just after it
-        assertFalse(ReportSchedule.isReportTime(eat(12, 0)))
-        assertFalse(ReportSchedule.isReportTime(eat(14, 45)))  // just before the evening window
+    @Test fun oneDigestPerBoundaryEvenIfTicksKeepComing() {
+        val sentMorning = eat(7, 31)
+        assertFalse(ReportSchedule.isDue(eat(7, 45), sentMorning))
+        assertFalse(ReportSchedule.isDue(eat(23, 45), sentMorning))
+        assertTrue(ReportSchedule.isDue(eat(0, 0, day = 1), sentMorning))   // next midnight
+    }
+
+    @Test fun aLateTickStillSendsTheMissedDigest() {
+        // phone was off over 07:30 and came back at 09:10
+        assertTrue(ReportSchedule.isDue(eat(9, 10), eat(0, 2)))
     }
 
     @Test fun minuteOfDayIsMeasuredInEatNotUtc() {
@@ -36,16 +43,14 @@ class ReportScheduleTest {
         assertEquals(1439, ReportSchedule.eatMinuteOfDay(eat(23, 59)))
     }
 
+    @Test fun clockAndRangeReadInEat() {
+        assertEquals("07:30", ReportSchedule.eatClock(eat(7, 30)))
+        assertEquals("00:00–07:30", ReportSchedule.range(eat(0, 0), eat(7, 30)))
+    }
+
     @Test fun ticksAlignToQuarterHourBoundaries() {
         assertEquals(5 * 60_000L, ReportSchedule.msUntilNextTick(eat(15, 10)))
         assertEquals(15 * 60_000L, ReportSchedule.msUntilNextTick(eat(15, 15)))  // never sleeps zero
         assertEquals(60_000L, ReportSchedule.msUntilNextTick(eat(15, 44)))
-    }
-
-    @Test fun labelReadsAsAPeriod() {
-        assertEquals("15 min", ReportSchedule.label(ReportSchedule.TICK_MS))
-        assertEquals("7h 30m", ReportSchedule.label(7 * 3_600_000L + 30 * 60_000L))
-        assertEquals("8h", ReportSchedule.label(8 * 3_600_000L))
-        assertEquals("1 min", ReportSchedule.label(0L))         // never "0 min"
     }
 }
