@@ -3,8 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-/// Display face for numerals and headlines only. Falls back to the platform face until the
-/// font asset is bundled (see pubspec.yaml).
+/// Display face for numerals and headlines only (bundled variable font, see pubspec.yaml).
 const kDisplayFont = 'BricolageGrotesque';
 
 /// Colours with meaning in the Growth Ring world. `you` is always the viewer, on both phones.
@@ -124,7 +123,13 @@ ThemeData anchorTheme(Brightness brightness, {TargetPlatform? platform}) {
 
   final base = ThemeData(brightness: brightness, useMaterial3: true, platform: platform);
   TextStyle? display(TextStyle? s, double size, double lineHeight, FontWeight w) =>
-      s?.copyWith(fontFamily: kDisplayFont, fontSize: size, height: lineHeight / size, fontWeight: w);
+      s?.copyWith(
+        fontFamily: kDisplayFont,
+        fontSize: size,
+        height: lineHeight / size,
+        fontWeight: w,
+        fontVariations: [FontVariation('wght', w.value.toDouble())], // variable font: weight is an axis
+      );
 
   final text = base.textTheme.apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface).copyWith(
         displayLarge: display(base.textTheme.displayLarge, 56, 60, FontWeight.w700),

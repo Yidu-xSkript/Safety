@@ -1,0 +1,192 @@
+// Supabase implementation of PodBackend. Schema and rules: supabase/migrations/0001_init.sql.
+// NOT yet exercised against a live project (none exists yet): the SQL is tested, this client is not.
+import 'dart:async';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../features/rings/ring_model.dart';
+import '../../features/today/domain/models.dart';
+import '../local_day.dart';
+import 'pod_backend.dart';
+
+const kSupabaseUrl = String.fromEnvironment('SUPABASE_URL');
+const kSupabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+bool get supabaseConfigured => kSupabaseUrl.isNotEmpty && kSupabaseAnonKey.isNotEmpty;
+
+class SupabaseBackend implements PodBackend {
+  SupabaseClient get _c => Supabase.instance.client;
+
+  @override
+  bool get configured => true;
+
+  /// Server answered with an error we know -> a calm kind. No answer at all -> offline.
+  PodError _map(Object e) {
+    if (e is PodError) return e;
+    if (e is PostgrestException) {
+      final m = '${e.message} ${e.details ?? ''}';
+      if (m.contains('already_in_pod')) return const PodError(PodErrorKind.alreadyInPod);
+      if (m.contains('too_many_attempts')) return const PodError(PodErrorKind.tooManyAttempts);
+      if (m.contains('invalid_code')) return const PodError(PodErrorKind.invalidCode);
+      if (const {'502', '503', '504'}.contains(e.code)) return const PodError(PodErrorKind.offline);
+      return const PodError(PodErrorKind.other);
+    }
+    if (e is AuthRetryableFetchException) return const PodError(PodErrorKind.offline);
+    if (e is AuthException) return const PodError(PodErrorKind.other);
+    return const PodError(PodErrorKind.offline); // socket, DNS, timeout, TLS: the phone could not reach the server
+  }
+
+  Future<T> _guard<T>(Future<T> Function() f) async {
+    try {
+      return await f();
+    } catch (e) {
+      throw _map(e);
+    }
+  }
+
+  @override
+  Future<void> ensureSignedIn() => _guard(() async {
+        if (_c.auth.currentSession == null) await _c.auth.signInAnonymously();
+      });
+
+  @override
+  Future<void> setProfile(String name, int utcOffsetMin) =>
+      _guard(() => _c.rpc('set_profile', params: {'p_name': name, 'p_offset': utcOffsetMin}));
+
+  PodInfo? _pod(List rows) {
+    if (rows.isEmpty) return null;
+    final r = rows.first as Map<String, dynamic>;
+    return PodInfo(
+      podId: r['pod_id'] as String,
+      status: PodStatus.values.byName(r['status'] as String),
+      inviteCode: r['invite_code'] as String?,
+      inviteExpiresAt: r['invite_expires_at'] == null ? null : DateTime.parse(r['invite_expires_at'] as String),
+      partnerId: r['partner_id'] as String?,
+      partnerName: r['partner_name'] as String?,
+    );
+  }
+
+  @override
+  Future<PodInfo?> myPod() => _guard(() async => _pod(await _c.rpc('my_pod') as List));
+
+  @override
+  Future<PodInfo> createPod() => _guard(() async {
+        final rows = await _c.rpc('create_pod') as List;
+        final r = rows.first as Map<String, dynamic>;
+        return PodInfo(
+          podId: r['out_pod'] as String,
+          status: PodStatus.open,
+          inviteCode: r['out_code'] as String,
+          inviteExpiresAt: DateTime.parse(r['out_expires'] as String),
+        );
+      });
+
+  @override
+  Future<void> joinPod(String code) => _guard(() async {
+        final r = await _c.rpc('join_pod', params: {'code': code}) as Map<String, dynamic>;
+        if (r['error'] == 'invalid_code') throw const PodError(PodErrorKind.invalidCode);
+      });
+
+  @override
+  Future<void> leavePod() => _guard(() => _c.rpc('leave_pod'));
+
+  @override
+  Future<SoloData> fetchPartner(PodInfo pod, DateTime today) => _guard(() async {
+        final id = pod.partnerId!;
+        final since = dayKey(addDays(today, -60));
+        final cis = await _c.from('check_ins').select('local_date,status,note,updated_at').eq('user_id', id).gte('local_date', since);
+        final habits = await _c.from('habits').select('id,title,created_day,archived_day').eq('user_id', id);
+        final logs = await _c.from('habit_logs').select('habit_id,local_date').eq('user_id', id).gte('local_date', since);
+
+        final checkIns = {
+          for (final r in cis)
+            r['local_date'] as String: CheckIn(
+              state: PledgeState.values.byName(r['status'] as String),
+              at: DateTime.parse(r['updated_at'] as String).toLocal(),
+              note: r['note'] as String?,
+            ),
+        };
+        final ticked = <String, Set<String>>{};
+        for (final r in logs) {
+          (ticked[r['local_date'] as String] ??= {}).add(r['habit_id'] as String);
+        }
+        final habitList = [
+          for (final r in habits)
+            Habit(
+              id: r['id'] as String,
+              title: r['title'] as String,
+              createdDay: parseDayKey(r['created_day'] as String),
+              archivedDay: r['archived_day'] == null ? null : parseDayKey(r['archived_day'] as String),
+            ),
+        ];
+        // First day with anything on record; days before it did not happen for them.
+        final days = [...checkIns.keys.map(parseDayKey), ...habitList.map((h) => h.createdDay)]..sort();
+        return SoloData(
+          name: pod.partnerName ?? '',
+          onboarded: true,
+          startDay: days.isEmpty ? null : days.first,
+          habits: habitList,
+          checkIns: checkIns,
+          logs: ticked,
+        );
+      });
+
+  @override
+  Stream<void> changes(String podId) {
+    late StreamController<void> ctl;
+    RealtimeChannel? ch;
+    ctl = StreamController<void>(
+      onListen: () {
+        ch = _c.channel('pod:$podId');
+        for (final (table, col) in const [
+          ('pods', 'id'),
+          ('pod_members', 'pod_id'),
+          ('check_ins', 'pod_id'),
+          ('habits', 'pod_id'),
+          ('habit_logs', 'pod_id'),
+        ]) {
+          ch!.onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: table,
+            filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: col, value: podId),
+            callback: (_) => ctl.add(null),
+          );
+        }
+        ch!.subscribe();
+      },
+      onCancel: () async {
+        if (ch != null) await _c.removeChannel(ch!);
+      },
+    );
+    return ctl.stream;
+  }
+
+  @override
+  Future<void> send(SyncOp op) => _guard(() async {
+        switch (op) {
+          case CheckInOp():
+            await _c.rpc('upsert_check_in', params: {
+              'p_pod': op.podId,
+              'p_day': dayKey(op.day),
+              'p_status': op.state.name,
+              'p_note': op.note,
+            });
+          case HabitOp():
+            await _c.rpc('upsert_habit', params: {
+              'p_id': op.id,
+              'p_pod': op.podId,
+              'p_title': op.title,
+              'p_created': dayKey(op.createdDay),
+              'p_archived': op.archivedDay == null ? null : dayKey(op.archivedDay!),
+            });
+          case TickOp() when op.on:
+            await _c.from('habit_logs').upsert(
+              {'habit_id': op.habitId, 'user_id': _c.auth.currentUser!.id, 'pod_id': op.podId, 'local_date': dayKey(op.day)},
+              onConflict: 'habit_id,local_date',
+              ignoreDuplicates: true,
+            );
+          case TickOp():
+            await _c.from('habit_logs').delete().eq('habit_id', op.habitId).eq('local_date', dayKey(op.day));
+        }
+      });
+}

@@ -1,24 +1,5 @@
-// SYNTHETIC demo data (Mika and Teo are not real people). Phase 0/1 only; replaced by the repository in Phase 2.
-import '../../core/local_day.dart';
-import '../today/domain/streak.dart';
+// SYNTHETIC demo data (Mika and Teo are not real people): the decorative slabs on the welcome screen and in goldens.
 import 'ring_model.dart';
-
-/// Phase 1 stand-in partner: held every day for 22 days, relative to whatever "today" is.
-const kDemoPartnerName = 'Teo';
-const _demoPartnerDays = 21; // held on each of the 21 days before today and today itself: a 22-day streak
-
-DateTime demoPartnerSince(DateTime today) => addDays(today, -_demoPartnerDays);
-
-PledgeState? demoPartnerPledgeOn(DateTime today, DateTime day) =>
-    day.isAfter(today) || day.isBefore(demoPartnerSince(today)) ? null : PledgeState.held;
-
-SlabData demoPartnerSlab(DateTime today) => buildSlab(
-      initial: kDemoPartnerName[0],
-      today: today,
-      since: demoPartnerSince(today),
-      pledgeOn: (d) => demoPartnerPledgeOn(today, d),
-      countsOn: (d) => (done: 2 + d.day % 3, total: 4),
-    );
 
 const _h = PledgeState.held;
 

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/adaptive/adaptive_widgets.dart';
+import '../../core/adaptive/step_layout.dart';
 import '../../l10n/app_localizations.dart';
 import '../rings/demo_data.dart';
 import '../rings/slab.dart';
@@ -15,39 +16,6 @@ const kMaxHabits = 8;
 const kMaxNameLength = 24;
 const kMaxHabitLength = 40;
 
-class _Step extends StatelessWidget {
-  const _Step({required this.children, required this.actions});
-
-  final List<Widget> children;
-  final List<Widget> actions;
-
-  @override
-  Widget build(BuildContext context) {
-    return AdaptiveScaffold(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Column(
-            children: [
-              Align(alignment: Alignment.centerLeft, child: Navigator.canPop(context) ? const BackButton() : const SizedBox(height: 48)),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                child: Column(mainAxisSize: MainAxisSize.min, children: actions),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
@@ -55,7 +23,7 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final t = Theme.of(context).textTheme;
-    return _Step(
+    return StepLayout(
       children: [
         const SizedBox(height: 24),
         // Decorative: the two-slab idea in one glance. Synthetic data, hidden from screen readers.
@@ -113,7 +81,7 @@ class _NameScreenState extends State<NameScreen> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final t = Theme.of(context).textTheme;
-    return _Step(
+    return StepLayout(
       children: [
         const SizedBox(height: 8),
         Text(l.nameTitle, style: t.headlineMedium),
@@ -185,7 +153,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
     final all = [...presets, ..._extra];
     final full = _selected.length >= kMaxHabits;
 
-    return _Step(
+    return StepLayout(
       children: [
         const SizedBox(height: 8),
         Text(l.habitsTitle, style: t.headlineMedium),

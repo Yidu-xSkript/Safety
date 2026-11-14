@@ -32,9 +32,8 @@ flutter pub get
 flutter analyze                       # must be clean
 flutter test                          # domain + golden tests
 flutter test --update-goldens         # only when a painter change is intended
-flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
-supabase start && supabase db reset   # local backend from supabase/migrations
-supabase test db                      # RLS and RPC tests
+flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...   # without them, pairing says "not connected"
+PGLITE_DIR=<folder with @electric-sql/pglite> node supabase/tests/run.mjs        # migration + RLS tests, no Docker (see supabase/README.md)
 ```
 
 ## Working agreements

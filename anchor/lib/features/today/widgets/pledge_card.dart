@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/adaptive/adaptive_widgets.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../pod/pod_controller.dart';
 import '../../rings/ring_model.dart';
 import '../domain/models.dart';
 import '../solo_controller.dart';
@@ -25,7 +26,8 @@ class _PledgeCardState extends ConsumerState<PledgeCard> {
   }
 
   Future<void> _slipped(CheckIn? existing) async {
-    final note = await showSlipSheet(context, initialNote: existing?.state == PledgeState.slipped ? existing?.note : null);
+    final partner = ref.read(podProvider).value?.pod?.partnerName ?? '';
+    final note = await showSlipSheet(context, partnerName: partner, initialNote: existing?.state == PledgeState.slipped ? existing?.note : null);
     if (note == null || !mounted) return; // "Not yet": nothing is saved
     setState(() => _changing = false);
     await ref.read(soloProvider.notifier).setPledge(PledgeState.slipped, note: note);
@@ -43,6 +45,8 @@ class _PledgeCardState extends ConsumerState<PledgeCard> {
     final scheme = Theme.of(context).colorScheme;
     final pledge = ref.watch(soloProvider.select((s) => s.value?.pledge));
     final answered = pledge != null && !_changing;
+    final pod = ref.watch(podProvider).value;
+    final partner = pod?.pod?.partnerName ?? '';
 
     return Card(
       child: Padding(
@@ -58,6 +62,10 @@ class _PledgeCardState extends ConsumerState<PledgeCard> {
                       pledge.state == PledgeState.held ? l.heldAt(_time(context, pledge.at)) : l.slippedAt(_time(context, pledge.at)),
                       style: t.titleLarge,
                     ),
+                    if (pledge.state == PledgeState.held && partner.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(l.heldSeen(partner), style: t.bodyLarge),
+                    ],
                     if (pledge.state == PledgeState.slipped) ...[
                       const SizedBox(height: 4),
                       Text(l.slipSaved, style: t.bodyLarge),
@@ -65,6 +73,10 @@ class _PledgeCardState extends ConsumerState<PledgeCard> {
                         const SizedBox(height: 8),
                         Text(pledge.note!, style: t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
                       ],
+                    ],
+                    if ((pod?.pending ?? 0) > 0) ...[
+                      const SizedBox(height: 8),
+                      Text(l.queuedNote, style: t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
                     ],
                     const SizedBox(height: 4),
                     AdaptiveButton(label: l.changeAnswer, kind: ButtonKind.text, onPressed: () => setState(() => _changing = true)),

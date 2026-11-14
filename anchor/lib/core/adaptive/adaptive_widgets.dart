@@ -1,6 +1,7 @@
 // Platform-native controls behind one small API. Screens call these, never branch on platform themselves.
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'adaptive_page.dart';
 
@@ -48,6 +49,9 @@ class AdaptiveTextField extends StatelessWidget {
     this.onSubmitted,
     this.textInputAction,
     this.capitalization = TextCapitalization.sentences,
+    this.inputFormatters,
+    this.style,
+    this.textAlign = TextAlign.start,
   });
 
   final TextEditingController controller;
@@ -59,6 +63,9 @@ class AdaptiveTextField extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
   final TextInputAction? textInputAction;
   final TextCapitalization capitalization;
+  final List<TextInputFormatter>? inputFormatters;
+  final TextStyle? style;
+  final TextAlign textAlign;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +81,9 @@ class AdaptiveTextField extends StatelessWidget {
         textInputAction: textInputAction,
         textCapitalization: capitalization,
         padding: const EdgeInsets.all(14),
-        style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 17),
+        inputFormatters: inputFormatters,
+        textAlign: textAlign,
+        style: style ?? TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 17),
       );
     }
     return TextField(
@@ -86,6 +95,9 @@ class AdaptiveTextField extends StatelessWidget {
       onSubmitted: onSubmitted,
       textInputAction: textInputAction,
       textCapitalization: capitalization,
+      inputFormatters: inputFormatters,
+      textAlign: textAlign,
+      style: style,
       decoration: InputDecoration(hintText: hint, counterText: ''),
     );
   }

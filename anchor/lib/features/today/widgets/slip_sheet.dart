@@ -5,12 +5,13 @@ import '../../../l10n/app_localizations.dart';
 
 /// Result of the slip sheet: the (possibly empty) note when saved, or null when dismissed with "Not yet".
 /// Never red, never alarmed: the first thing it says is thank you.
-Future<String?> showSlipSheet(BuildContext context, {String? initialNote}) =>
-    adaptiveSheet<String>(context, (_) => _SlipSheet(initialNote: initialNote));
+Future<String?> showSlipSheet(BuildContext context, {required String partnerName, String? initialNote}) =>
+    adaptiveSheet<String>(context, (_) => _SlipSheet(partnerName: partnerName, initialNote: initialNote));
 
 class _SlipSheet extends StatefulWidget {
-  const _SlipSheet({this.initialNote});
+  const _SlipSheet({required this.partnerName, this.initialNote});
 
+  final String partnerName;
   final String? initialNote;
 
   @override
@@ -38,11 +39,11 @@ class _SlipSheetState extends State<_SlipSheet> {
         children: [
           Text(l.slipTitle, style: t.headlineMedium),
           const SizedBox(height: 8),
-          Text(l.slipBody, style: t.bodyLarge),
+          Text(l.slipBody(widget.partnerName), style: t.bodyLarge),
           const SizedBox(height: 16),
-          AdaptiveTextField(controller: _note, hint: l.slipNoteHint, maxLength: 500, maxLines: 4),
+          AdaptiveTextField(controller: _note, hint: l.slipNoteHint(widget.partnerName), maxLength: 500, maxLines: 4),
           const SizedBox(height: 16),
-          AdaptiveButton(label: l.slipSave, expand: true, onPressed: () => Navigator.of(context).pop(_note.text.trim())),
+          AdaptiveButton(label: l.slipTell(widget.partnerName), expand: true, onPressed: () => Navigator.of(context).pop(_note.text.trim())),
           AdaptiveButton(label: l.slipNotYet, kind: ButtonKind.text, onPressed: () => Navigator.of(context).pop()),
         ],
       ),

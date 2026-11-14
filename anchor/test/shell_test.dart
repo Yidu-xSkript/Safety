@@ -13,7 +13,7 @@ void setSize(WidgetTester t, double w, double h) {
 }
 
 void main() {
-  setUp(() => seedSolo(onboardedMika(started: dayOf(2026, 11, 14))));
+  setUp(() => seedSolo(onboardedMika(started: dayOf(2026, 11, 14)), true));
 
   testWidgets('Android phone: NavigationBar with three tabs and an Urge FAB that opens the Urge screen', (t) async {
     setSize(t, 400, 800);

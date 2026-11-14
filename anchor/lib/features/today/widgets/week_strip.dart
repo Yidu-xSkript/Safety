@@ -46,7 +46,7 @@ class WeekStrip extends StatelessWidget {
                         loc.formatMediumDate(d.day),
                         [
                           if (d.you != null) l.weekPersonState(view.name, ringWordText(l, d.you!)),
-                          l.weekPersonState(partnerName, ringWordText(l, d.partner)),
+                          if (d.partner != null) l.weekPersonState(partnerName, ringWordText(l, d.partner!)),
                         ].join(', '),
                       ),
                       child: ExcludeSemantics(
@@ -63,7 +63,7 @@ class WeekStrip extends StatelessWidget {
                               ),
                             ),
                             SizedBox(height: 40, child: Center(child: d.you == null ? null : RingGlyph(state: d.you!, person: Person.you))),
-                            SizedBox(height: 40, child: Center(child: RingGlyph(state: d.partner, person: Person.partner))),
+                            SizedBox(height: 40, child: Center(child: d.partner == null ? null : RingGlyph(state: d.partner!, person: Person.partner))),
                           ],
                         ),
                       ),

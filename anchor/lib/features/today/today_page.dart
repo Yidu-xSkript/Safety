@@ -3,14 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/adaptive/adaptive_page.dart';
 import '../../l10n/app_localizations.dart';
-import '../rings/demo_data.dart';
 import '../rings/pod_header.dart';
 import 'solo_controller.dart';
 import 'widgets/habits_card.dart';
 import 'widgets/pledge_card.dart';
 import 'widgets/week_strip.dart';
 
-/// Phase 1: you are real, your partner is the synthetic Teo (demo_data.dart) until pairing lands in Phase 2.
+/// You and your partner, both real (partner data comes from the pod and is cached for offline).
 class TodayPage extends ConsumerWidget {
   const TodayPage({super.key, required this.onUrge});
 
@@ -23,17 +22,17 @@ class TodayPage extends ConsumerWidget {
     final l = AppLocalizations.of(context);
 
     return AdaptivePage(
-      title: l.podTitle(v.name, kDemoPartnerName),
+      title: l.podTitle(v.name, v.partnerName),
       onUrge: onUrge,
       large: false,
       children: [
-        PodHeader(youName: v.name, partnerName: kDemoPartnerName, you: v.you, partner: v.partner, podStreak: v.podStreak),
+        PodHeader(youName: v.name, partnerName: v.partnerName, you: v.you, partner: v.partner, podStreak: v.podStreak),
         const SizedBox(height: 24),
         const PledgeCard(),
         const SizedBox(height: 12),
         const HabitsCard(),
         const SizedBox(height: 12),
-        WeekStrip(view: v, partnerName: kDemoPartnerName),
+        WeekStrip(view: v, partnerName: v.partnerName),
       ],
     );
   }

@@ -194,7 +194,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get slipSaved =>
-      'Saved. Tomorrow is a new ring. The tree keeps growing.';
+      'Told. Tomorrow is a new ring. The tree keeps growing.';
 
   @override
   String get changeAnswer => 'Change today\'s answer';
@@ -211,15 +211,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get slipTitle => 'Thank you for telling the truth.';
 
   @override
-  String get slipBody => 'That takes more than holding a streak does.';
-
-  @override
-  String get slipNoteHint => 'Add a note (optional)';
-
-  @override
-  String get slipSave => 'Save';
-
-  @override
   String get slipNotYet => 'Not yet';
 
   @override
@@ -234,4 +225,96 @@ class AppLocalizationsEn extends AppLocalizations {
   String weekDayLabel(String date, String summary) {
     return '$date: $summary';
   }
+
+  @override
+  String slipBody(String name) {
+    return 'That takes more than holding a streak does. $name will see this and can answer you.';
+  }
+
+  @override
+  String slipNoteHint(String name) {
+    return 'Add a note for $name (optional)';
+  }
+
+  @override
+  String slipTell(String name) {
+    return 'Tell $name';
+  }
+
+  @override
+  String heldSeen(String name) {
+    return '$name can see it.';
+  }
+
+  @override
+  String get queuedNote => 'Saved. Will send when you\'re back online.';
+
+  @override
+  String get pairTitle => 'Pair with one person you trust';
+
+  @override
+  String get pairBody =>
+      'A pod is exactly two people. Nobody else can ever see it.';
+
+  @override
+  String get createPod => 'Create a pod';
+
+  @override
+  String get haveCode => 'I have a code';
+
+  @override
+  String get joinTitle => 'Enter your partner\'s code';
+
+  @override
+  String get joinHint => '6-character code';
+
+  @override
+  String get joinButton => 'Join';
+
+  @override
+  String get waitingTitle => 'Share this code with the one person you trust.';
+
+  @override
+  String get codeNote => 'Single use. Expires in 24 hours.';
+
+  @override
+  String get codeExpired => 'This code has expired.';
+
+  @override
+  String get newCode => 'Get a new code';
+
+  @override
+  String get copyCode => 'Copy';
+
+  @override
+  String get copiedCode => 'Copied';
+
+  @override
+  String get shareCode => 'Share';
+
+  @override
+  String shareText(String code) {
+    return 'Join me on Anchor: $code';
+  }
+
+  @override
+  String pairedMoment(String name) {
+    return '$name is here.';
+  }
+
+  @override
+  String get errInvalidCode =>
+      'That code doesn\'t match a pod. Check it with your partner and try again.';
+
+  @override
+  String get errTooManyAttempts => 'Let\'s pause a bit. Try again in an hour.';
+
+  @override
+  String get errAlreadyInPod => 'You\'re already in a pod.';
+
+  @override
+  String get errOffline => 'No connection. Check your internet and try again.';
+
+  @override
+  String get errNotConfigured => 'Anchor isn\'t connected to a server yet.';
 }

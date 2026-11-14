@@ -36,7 +36,7 @@ SoloData week() => onboardedMika(
 
 Future<void> shot(WidgetTester t, String file,
     {Brightness brightness = Brightness.light, TargetPlatform platform = TargetPlatform.android, double textScale = 1, SoloData? data}) async {
-  seedSolo(data ?? week());
+  seedSolo(data ?? week(), true);
   // Desktop hosts default to keyboard-focus highlighting, which draws a focus ring on the FAB. Phones don't.
   FocusManager.instance.highlightStrategy = FocusHighlightStrategy.alwaysTouch;
   addTearDown(() => FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic);

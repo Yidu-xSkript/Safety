@@ -41,7 +41,7 @@ Large code in the Display role, grouped `7K3 M2P`, with **Copy**, **Share** (sys
 Email OTP to link the anonymous account. Copy states the real consequence: "Without this, a lost phone means a new pod." Dismissible, not nagging (twice in total).
 
 ### 7. Today (home)  — see `DESIGN.md` and the surface brief
-1. App bar: pod name ("Mika & Teo"). Android: small pinned bar (keeps the pledge above the fold); iOS: large title, as top-level tabs use. Sync chip ("In sync" / "Waiting on Teo") arrives with pairing in Phase 2.
+1. App bar: pod name ("Mika & Teo"). Android: small pinned bar (keeps the pledge above the fold); iOS: large title, as top-level tabs use. Sync chip ("In sync" / "Waiting on Teo") arrives in Phase 4 with the nudge.
 2. Pod header: two equal slabs, numerals beneath, pod line with pod streak.
 3. Pledge card: before answer, "How was today?" with **Held the line** (filled) and **I slipped** (outlined). After: collapsed row "Held the line · 21:42" with "Change".
 4. Habits card: "Habits · 3 of 4", native checkboxes; checking a habit sweeps today's ring (400 ms, emphasized decelerate).

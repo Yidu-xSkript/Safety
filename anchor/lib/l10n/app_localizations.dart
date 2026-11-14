@@ -386,7 +386,7 @@ abstract class AppLocalizations {
   /// No description provided for @slipSaved.
   ///
   /// In en, this message translates to:
-  /// **'Saved. Tomorrow is a new ring. The tree keeps growing.'**
+  /// **'Told. Tomorrow is a new ring. The tree keeps growing.'**
   String get slipSaved;
 
   /// No description provided for @changeAnswer.
@@ -413,24 +413,6 @@ abstract class AppLocalizations {
   /// **'Thank you for telling the truth.'**
   String get slipTitle;
 
-  /// No description provided for @slipBody.
-  ///
-  /// In en, this message translates to:
-  /// **'That takes more than holding a streak does.'**
-  String get slipBody;
-
-  /// No description provided for @slipNoteHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Add a note (optional)'**
-  String get slipNoteHint;
-
-  /// No description provided for @slipSave.
-  ///
-  /// In en, this message translates to:
-  /// **'Save'**
-  String get slipSave;
-
   /// No description provided for @slipNotYet.
   ///
   /// In en, this message translates to:
@@ -454,6 +436,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{date}: {summary}'**
   String weekDayLabel(String date, String summary);
+
+  /// No description provided for @slipBody.
+  ///
+  /// In en, this message translates to:
+  /// **'That takes more than holding a streak does. {name} will see this and can answer you.'**
+  String slipBody(String name);
+
+  /// No description provided for @slipNoteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a note for {name} (optional)'**
+  String slipNoteHint(String name);
+
+  /// No description provided for @slipTell.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell {name}'**
+  String slipTell(String name);
+
+  /// No description provided for @heldSeen.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} can see it.'**
+  String heldSeen(String name);
+
+  /// No description provided for @queuedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved. Will send when you\'re back online.'**
+  String get queuedNote;
+
+  /// No description provided for @pairTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair with one person you trust'**
+  String get pairTitle;
+
+  /// No description provided for @pairBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A pod is exactly two people. Nobody else can ever see it.'**
+  String get pairBody;
+
+  /// No description provided for @createPod.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a pod'**
+  String get createPod;
+
+  /// No description provided for @haveCode.
+  ///
+  /// In en, this message translates to:
+  /// **'I have a code'**
+  String get haveCode;
+
+  /// No description provided for @joinTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your partner\'s code'**
+  String get joinTitle;
+
+  /// No description provided for @joinHint.
+  ///
+  /// In en, this message translates to:
+  /// **'6-character code'**
+  String get joinHint;
+
+  /// No description provided for @joinButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Join'**
+  String get joinButton;
+
+  /// No description provided for @waitingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this code with the one person you trust.'**
+  String get waitingTitle;
+
+  /// No description provided for @codeNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Single use. Expires in 24 hours.'**
+  String get codeNote;
+
+  /// No description provided for @codeExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This code has expired.'**
+  String get codeExpired;
+
+  /// No description provided for @newCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Get a new code'**
+  String get newCode;
+
+  /// No description provided for @copyCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get copyCode;
+
+  /// No description provided for @copiedCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get copiedCode;
+
+  /// No description provided for @shareCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get shareCode;
+
+  /// No description provided for @shareText.
+  ///
+  /// In en, this message translates to:
+  /// **'Join me on Anchor: {code}'**
+  String shareText(String code);
+
+  /// No description provided for @pairedMoment.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is here.'**
+  String pairedMoment(String name);
+
+  /// No description provided for @errInvalidCode.
+  ///
+  /// In en, this message translates to:
+  /// **'That code doesn\'t match a pod. Check it with your partner and try again.'**
+  String get errInvalidCode;
+
+  /// No description provided for @errTooManyAttempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Let\'s pause a bit. Try again in an hour.'**
+  String get errTooManyAttempts;
+
+  /// No description provided for @errAlreadyInPod.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re already in a pod.'**
+  String get errAlreadyInPod;
+
+  /// No description provided for @errOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection. Check your internet and try again.'**
+  String get errOffline;
+
+  /// No description provided for @errNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Anchor isn\'t connected to a server yet.'**
+  String get errNotConfigured;
 }
 
 class _AppLocalizationsDelegate

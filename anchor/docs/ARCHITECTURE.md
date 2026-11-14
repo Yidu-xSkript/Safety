@@ -29,13 +29,13 @@ Two phones never talk to each other. The pod is a row; both phones watch it.
 | State | `flutter_riverpod` | Small, testable, no codegen required | — |
 | Routing | `go_router` | Deep links from notifications, redirect guards (onboarding, app lock) | — |
 | Models | Plain Dart classes with hand-written `fromJson` | ~8 small models; no `freezed`/`json_serializable` build step | >15 models or schema churn |
-| Offline outbox | `shared_preferences` JSON list | Only check-ins, habit toggles and urge events queue; <20 items ever | Need to queue more than this (move to `drift`) |
+| Offline outbox | JSON list in key-value storage (`core/kv.dart`, shared_preferences underneath) | Only pledges, habit ticks and habit edits queue; a handful of items; ops are idempotent and coalesced by key | Need to queue more than this (move to `drift`) |
 | Local secrets | `flutter_secure_storage` (session) | Keychain / Keystore | — |
 | App lock | `local_auth` (biometric or device credential) | Discretion on shared phones | — |
 | Streaks | Computed on the client in one pure Dart function | One implementation, unit-tested, works offline | A server-side feature (e.g. email digest) needs them |
 | l10n | `flutter_localizations` + ARB from day one, English only | Amharic is a candidate; retrofitting strings is painful | — |
 
-Dependencies are exactly: `supabase_flutter`, `flutter_riverpod`, `go_router`, `firebase_core`, `firebase_messaging`, `flutter_local_notifications`, `shared_preferences`, `flutter_secure_storage`, `local_auth`, `intl`, `url_launcher` (call/text), `cupertino_icons` (bundles the font `CupertinoIcons` draws from; added in Phase 0). In so far: Phase 0 `cupertino_icons`, `intl`; Phase 1 `flutter_riverpod`, `shared_preferences`. Adding one needs a reason in the PR.
+Dependencies are exactly: `supabase_flutter`, `flutter_riverpod`, `go_router`, `firebase_core`, `firebase_messaging`, `flutter_local_notifications`, `shared_preferences`, `flutter_secure_storage`, `local_auth`, `intl`, `url_launcher` (call/text), `cupertino_icons` (bundles the font `CupertinoIcons` draws from; added in Phase 0). In so far: Phase 0 `cupertino_icons`, `intl`; Phase 1 `flutter_riverpod`, `shared_preferences`; Phase 2 `supabase_flutter`, `share_plus` (the system share sheet for the invite code). Not yet: `go_router`, `firebase_*`, `local_auth`, `flutter_secure_storage`, `url_launcher` (their phases). Adding one needs a reason in the PR.
 
 ## Code layout (feature-first)
 
@@ -73,6 +73,16 @@ anchor/
 ```
 
 Each feature folder splits `data/` (repository, Supabase calls), `domain/` (pure Dart models and rules), `ui/` (widgets). UI never imports Supabase; repositories never import Flutter.
+
+## Pairing and sync (as built in Phase 2)
+
+- **`core/backend/pod_backend.dart`** is the only contract the app has with a server: sign in, profile, `myPod`, `createPod`, `joinPod`, `leavePod`, `fetchPartner`, a `changes` stream and `send(SyncOp)`. `SupabaseBackend` implements it; tests use an in-memory `FakeBackend` that shares one `FakeServer` between two phones. When `SUPABASE_URL`/`SUPABASE_ANON_KEY` are not supplied, `UnconfiguredBackend` makes pairing fail with a calm message.
+- **Local data stays the source of truth for *your* side.** `SoloController` writes locally first, then `PodController.record()` queues a `SyncOp` (`CheckInOp`, `HabitOp`, `TickOp`) if a pod is active. Nothing waits on the network to show an answer.
+- **Outbox rules:** ops are idempotent (server upserts); a newer op with the same key replaces the pending one (change your answer offline and only the last goes up); flushed in order; stops at the first *unreachable* error and retries every 30 s, on resume and after each new op; an op the server *refuses* is dropped so it cannot block the queue. The queue and the pod/partner cache persist in key-value storage, so closing the app loses nothing.
+- **Partner data** is fetched (not streamed): Realtime only says "something changed in this pod" and the app refetches the partner's last 60 days, debounced 300 ms. It is cached, so Today opens instantly and offline. The partner's data has the same shape as yours (`SoloData`), so slab, streak and week-strip code is shared.
+- **Activation backfill:** when a pod becomes active (either side), habits get real UUIDs (Phase 1 ids are migrated) and today's and yesterday's pledge/ticks are queued once. Older solo days stay on this phone because the server only accepts the last two days.
+- **Root routing** (`main.dart`): not onboarded → onboarding; no/archived pod → pairing choice; open pod → waiting for the partner; just paired → "X is here." for ~2 s; active → the app.
+- **Errors** are sorted into `PodErrorKind` (`invalidCode`, `tooManyAttempts`, `alreadyInPod`, `offline`, `notConfigured`, `other`) and each has one calm sentence (`SOUL.md`).
 
 ## Domain rules (pure Dart, `test/` covers each)
 

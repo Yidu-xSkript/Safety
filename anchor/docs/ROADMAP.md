@@ -17,11 +17,14 @@ Each phase ends in something a real person can use. Do not start phase N+1 with 
 - **Built:** onboarding (welcome, name, habits), Today (pod header, pledge card, habits, week strip), slip sheet, local storage, 04:00 rollover on resume, ring sweep that honours Remove animations. End-to-end tests on both platforms. Not yet checked on a real TalkBack/VoiceOver or an emulator (none available on the dev machine).
 - **Carried into Phase 2 (copy is deliberately partner-free while there is no partner):** restore "Held the line. Teo can see it.", the slip sheet's "Tell Teo" and "Teo will see this and can answer you" (`SOUL.md` copy bank); replace `rings/demo_data.dart` (synthetic Teo) with the real partner; the unread-day edge case when a partner joins mid-streak.
 
-## Phase 2 — Pairing (3–5 days)
+## Phase 2 — Pairing (3–5 days) · built, not yet run against a live project
 - Supabase project, `SCHEMA.md` applied, RLS test script green.
 - Anonymous sign-in, profile, `create_pod` / `join_pod`, waiting screen over Realtime, error mapping.
 - Today now reads the partner's real rows; outbox for check-ins and habit ticks.
 - **Accept:** two physical phones pair with a code; a third account cannot read the pod; killing connectivity and returning replays without duplicates.
+- **Built:** `supabase/migrations/0001_init.sql` and 15 SQL test sections that pass on a real Postgres (PGlite); `PodBackend` interface with a Supabase client and an in-memory fake; anonymous sign-in, profile, create/join (6-char code, rate limited), waiting screen, "Teo is here." moment, partner data on Today over Realtime (refetch on change, cache for offline); outbox for pledges and ticks (coalesced, persisted, replayed in order, refused ops dropped); Phase 1 habit ids migrated to UUIDs; Teo copy restored. Two phones are simulated in tests (own storage, shared in-memory server).
+- **Still to do before this is "accepted":** run the migration on a real Supabase project (steps in `supabase/README.md`) and pair two physical phones; test two simultaneous joins on one code. The Supabase client (`supabase_backend.dart`) has never talked to a live server.
+- **Deferred:** the sync chip ("In sync" / "Waiting on Teo") moved to Phase 4 with the nudge; an archived pod just returns you to the pairing choice until leave-pod lands in Phase 4; `flutter_secure_storage` for the session moves to Phase 5 with app lock.
 
 ## Phase 3 — The hard moment (3–5 days)
 - Firebase project (messaging only), device registration, `notify` Edge Function, generic wording from `SECURITY.md`.
