@@ -1,0 +1,42 @@
+{
+  "@@locale": "en",
+  "appName": "Anchor",
+  "tabToday": "Today",
+  "tabHistory": "History",
+  "tabPod": "Pod",
+  "urge": "Urge",
+  "urgeTooltip": "Reach out to your partner",
+  "daysHeld": "days held",
+  "podStreak": "Pod streak {count}",
+  "@podStreak": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "ringStateHeld": "held",
+  "ringStateSlipped": "slipped",
+  "ringStateUnchecked": "not checked in",
+  "slabSemantics": "{name}: {days} days held. Today: habits {done} of {total}, pledge {pledge}. Last days: {history}.",
+  "@slabSemantics": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "days": { "type": "int" },
+      "done": { "type": "int" },
+      "total": { "type": "int" },
+      "pledge": { "type": "String" },
+      "history": { "type": "String" }
+    }
+  },
+  "slabSemanticsNoHistory": "{name}: {days} days held. Today: habits {done} of {total}, pledge {pledge}.",
+  "@slabSemanticsNoHistory": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "days": { "type": "int" },
+      "done": { "type": "int" },
+      "total": { "type": "int" },
+      "pledge": { "type": "String" }
+    }
+  },
+  "urgePlaceholderTitle": "The Urge flow arrives in a later phase.",
+  "close": "Close",
+  "historyPlaceholder": "Your first ring forms tonight.",
+  "podPlaceholder": "Your pod will live here."
+}

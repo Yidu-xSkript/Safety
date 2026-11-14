@@ -6,7 +6,7 @@ Voice and copy: `SOUL.md`. Visual rules: `DESIGN.md`. Names below (Mika = you, T
 
 Three destinations, always visible: **Today · History · Pod**. Android: `NavigationBar` (<600dp) / `NavigationRail` (≥600dp). iOS: tab bar; large titles on History and Pod. System back always works; no screen traps the user.
 
-The **Urge** action is persistent: Android extended FAB (label "Urge", `anchor` icon) bottom-trailing above the nav bar on all three tabs; iOS trailing toolbar button (SF Symbol `lifepreserver`, label "Urge") on all three. Also an app-icon shortcut (Android static shortcut, iOS quick action).
+The **Urge** action is persistent: Android extended FAB (label "Urge", `anchor` icon) bottom-trailing above the nav bar on all three tabs; iOS trailing toolbar button (`CupertinoIcons.hand_raised`, label "Urge"; Flutter ships no SF Symbols, and a raised hand reads as "reaching out") on all three. Also an app-icon shortcut (Android static shortcut, iOS quick action).
 
 ## Flow map
 

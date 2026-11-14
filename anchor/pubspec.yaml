@@ -1,0 +1,35 @@
+name: anchor
+description: "Anchor: a two-person accountability pod."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.2
+
+# Phase 0 needs only the framework + l10n. Add dependencies when the phase that uses them starts
+# (list and rationale: docs/ARCHITECTURE.md).
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+  cupertino_icons: ^1.0.8 # bundles the font CupertinoIcons draws from
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+  # Display face (numerals + headlines). Add assets/fonts/BricolageGrotesque-*.ttf (OFL) and uncomment:
+  # fonts:
+  #   - family: BricolageGrotesque
+  #     fonts:
+  #       - asset: assets/fonts/BricolageGrotesque-Regular.ttf
+  #       - asset: assets/fonts/BricolageGrotesque-SemiBold.ttf
+  #         weight: 600
+  #       - asset: assets/fonts/BricolageGrotesque-Bold.ttf
+  #         weight: 700

@@ -44,7 +44,7 @@ Strategy: **Committed shell, two person-hues.** A green-grey tinted ground carri
 - **Lichen** (`#E9EEE7`) *(start)*: light ground. **Lichen Raised** (`#F4F7F2`): cards and sheets (tonal step up).
 - **Spruce Night** (`#0F1A17`): dark ground. **Spruce Raised** (`#16241F`) and **Spruce High** (`#1D2D27`): dark tonal steps.
 - **Spruce Ink** (`#14201C`) text on light, **Mist** (`#E3EBE6`) text on dark. Secondary text at 70% of these.
-- **Hollow** (`#8A9690` light / `#6F7E77` dark): outlines for "not checked in" rings and dividers.
+- **Hollow** (`#7B8781` light / `#6F7E77` dark): outlines for "not checked in" rings and dividers. Light value darkened from the first draft to clear 3:1 on Lichen (enforced in `contrast_test.dart`).
 
 ### Night register (Urge screen and after-22:00 check-ins)
 - **Night Ground** (`#0A1210`), **Ember** (`#C98A3A`, dim sap) as the single annotation hue, **Lamp Text** (`#D9C6A5`) for copy. No pure white, no saturated red, maximum 15% of the screen carries Ember.
@@ -103,9 +103,9 @@ Material 3 shape scale on Android, continuous corners on iOS:
 ### Signature: The Growth Ring (CustomPainter, shared by both platforms)
 
 A **slab** is 156dp across (scales to 120dp at 200% text and on 320dp-wide screens). From centre outward:
-1. **Heartwood**: a filled disc, radius 22dp, in the person's *Deep* hue. Holds the person's initial (Title role, on-hue). Fine hairlines suggest compressed older days. Its presence is constant; the streak numeral beneath it says how many days it represents.
-2. **Seven day-rings**: the last seven completed days, oldest innermost. Each ring is a stroke whose width = `lerp(2dp, 6dp, habitsDone / habitsTotal)` (a day with no habits still gets 2dp), with a 1.5dp gap between rings.
-3. **Today ring**: outermost. A faint full-circle track plus a sweep arc from 12 o'clock clockwise; sweep angle = habit completion for today. Before the pledge the track is **dashed**; held makes it **solid**; slipped makes it frost with the notch.
+1. **Heartwood**: a filled disc, radius 20dp, in the person's *Deep* hue. Holds the person's initial (Title role, on-hue). Fine hairlines suggest compressed older days. Its presence is constant; the streak numeral beneath it says how many days it represents.
+2. **Seven day-rings**: the last seven completed days, oldest innermost. Each ring is a stroke whose width = `lerp(2dp, 5dp, habitsDone / habitsTotal)` (a day with no habits still gets 2dp), with a 1.5dp gap between rings. Seven full days plus today fit inside the 156dp slab (asserted in `ring_model_test.dart`).
+3. **Today ring**: outermost, 5dp. A faint full-circle track plus a sweep arc from 12 o'clock clockwise; sweep angle = habit completion for today. Before the pledge the track is **dashed**; held makes it **solid**; slipped makes it frost with the notch.
 
 Per-ring pledge state:
 | State | Stroke | Shape cue |
@@ -116,9 +116,9 @@ Per-ring pledge state:
 
 A slip is permanent in the ring record. The ring after it is drawn normally: **the tree grows past the scar.**
 
-**Ring glyph** (heatmap and week strip): the same three states at 20dp, as a filled disc, a frost disc with a wedge removed, and a dashed hollow circle. History shows two glyphs per day, yours left, partner's right.
+**Ring glyph** (heatmap and week strip): the same three states at 20dp, as a filled disc, a frost disc with a 50° wedge removed at 12 o'clock (14° would vanish at that size), and a dashed hollow circle (3dp dash, 3dp gap). History shows two glyphs per day, yours left, partner's right.
 
-**Pod line**: a 1.5dp neutral line joining the two slabs at their vertical centres, with the pod streak ("Pod streak 9") centred on it, a small pill on the line. It is the "graft" between two trees.
+**Pod line**: a 1.5dp neutral hairline joining the two slabs at their vertical centres: the "graft" between two trees. The pod streak ("Pod streak 14") is a quiet pill centred beneath both day counts; at 360dp there is no room for it on the line itself.
 
 Accessibility: each slab exposes one semantic label: "Mika: 14 days held. Today: habits 3 of 4, pledge not yet made. Last seven days: held, held, held, slipped, held, held, held."
 
