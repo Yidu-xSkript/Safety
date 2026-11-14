@@ -11,35 +11,29 @@ object NativeConfig {
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun save(
-        ctx: Context, dohUrl: String, witnessEmail: String,
-        smtpHost: String, smtpPort: Int, smtpUser: String, smtpPass: String, smtpFrom: String,
+        ctx: Context, dohUrl: String, botToken: String, chatId: String,
         nextDnsApiKey: String, nextDnsProfileId: String,
     ) {
         prefs(ctx).edit()
-            .putString("dohUrl", dohUrl).putString("witnessEmail", witnessEmail)
-            .putString("smtpHost", smtpHost).putInt("smtpPort", smtpPort)
-            .putString("smtpUser", smtpUser).putString("smtpPass", smtpPass)
-            .putString("smtpFrom", smtpFrom)
+            .putString("dohUrl", dohUrl)
+            .putString("botToken", botToken).putString("chatId", chatId)
             .putString("nextDnsApiKey", nextDnsApiKey).putString("nextDnsProfileId", nextDnsProfileId)
             .apply()
     }
 
-    // Rebuild EnforcementState (incl. a fresh EmailReporter) from disk if it's empty. Safe to call
+    // Rebuild EnforcementState (incl. a fresh TelegramReporter) from disk if it's empty. Safe to call
     // from any entry point; a no-op once state is populated.
     fun ensureLoaded(ctx: Context) {
         if (EnforcementState.dohUrl != null && EnforcementState.reporter != null) return
         val p = prefs(ctx)
         val doh = p.getString("dohUrl", null) ?: return
         EnforcementState.dohUrl = doh
-        EnforcementState.witnessEmail = p.getString("witnessEmail", null)
         EnforcementState.nextDnsApiKey = p.getString("nextDnsApiKey", null)
         EnforcementState.nextDnsProfileId = p.getString("nextDnsProfileId", null)
-        val host = p.getString("smtpHost", null)
-        if (host != null && EnforcementState.reporter == null) {
-            EnforcementState.reporter = EmailReporter(
-                host, p.getInt("smtpPort", 587),
-                p.getString("smtpUser", "") ?: "", p.getString("smtpPass", "") ?: "",
-                p.getString("smtpFrom", "") ?: "")
+        val token = p.getString("botToken", null)
+        val chat = p.getString("chatId", null)
+        if (token != null && chat != null && EnforcementState.reporter == null) {
+            EnforcementState.reporter = TelegramReporter(token, chat)
         }
     }
 

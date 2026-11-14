@@ -27,6 +27,14 @@ class WatchdogWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, param
             }
         }
 
+        // Telegram chat names come from the accessibility watch, which is revocable in Settings — so a
+        // revocation is itself a tamper signal. Only alert once it HAS been granted, so a setup that
+        // simply never turned it on doesn't nag the witness daily.
+        if (TelegramWatch.wasEverEnabled(ctx) && !TelegramWatch.isEnabled(ctx) &&
+            NativeConfig.shouldAlertOncePerDay(ctx, "watch_off")) {
+            Alerts.notifyBlocking(ctx, AlertKind.WATCH_OFF, "")
+        }
+
         val vpnUp = isVpnActive(ctx)
         val adminActive = AdminState.isActive(ctx)
         val heartbeatDue = HeartbeatClock.isDue(ctx)

@@ -18,9 +18,10 @@ import com.safety.accountability.AdminState
 import com.safety.accountability.AlertEmail
 import com.safety.accountability.AlertKind
 import com.safety.accountability.Alerts
-import com.safety.accountability.EmailReporter
 import com.safety.accountability.EnforcementState
 import com.safety.accountability.NativeConfig
+import com.safety.accountability.TelegramReporter
+import com.safety.accountability.TelegramWatch
 import com.safety.accountability.WatchdogWorker
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -39,21 +40,16 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "configure" -> {
                         val dohUrl: String = call.argument("dohUrl")!!
-                        val witnessEmail: String = call.argument("witnessEmail")!!
-                        val smtpHost: String = call.argument("smtpHost")!!
-                        val smtpPort: Int = call.argument("smtpPort")!!
-                        val smtpUser: String = call.argument("smtpUser")!!
-                        val smtpPass: String = call.argument("smtpPass")!!
-                        val smtpFrom: String = call.argument("smtpFrom")!!
+                        val botToken: String = call.argument("botToken")!!
+                        val chatId: String = call.argument("chatId")!!
                         val apiKey: String = call.argument<String>("nextDnsApiKey") ?: ""
                         val profileId: String = call.argument<String>("nextDnsProfileId") ?: ""
                         EnforcementState.dohUrl = dohUrl
-                        EnforcementState.witnessEmail = witnessEmail
                         EnforcementState.nextDnsApiKey = apiKey
                         EnforcementState.nextDnsProfileId = profileId
-                        EnforcementState.reporter = EmailReporter(smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom)
+                        EnforcementState.reporter = TelegramReporter(botToken, chatId)
                         // Persist so background entry points work in a fresh process (audit #2).
-                        NativeConfig.save(this, dohUrl, witnessEmail, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, apiKey, profileId)
+                        NativeConfig.save(this, dohUrl, botToken, chatId, apiKey, profileId)
                         NativeConfig.setReleasing(this, false)   // (re)configuring means we're protecting again
                         result.success(true)
                     }
@@ -78,20 +74,19 @@ class MainActivity : FlutterActivity() {
                         Alerts.notifyAsync(this, AlertKind.RELEASE_ATTEMPT, "")
                         result.success(true)
                     }
-                    "testEmail" -> {   // setup self-test: send a real email so a bad SMTP config can't slip through
-                        val to = (call.argument<String>("to") ?: EnforcementState.witnessEmail).orEmpty()
+                    "testReport" -> {   // setup self-test: post a real message so a bad bot token / channel can't slip through
                         val reporter = EnforcementState.reporter
-                        if (reporter == null || to.isBlank()) {
-                            result.success("Email is not configured yet — fill in the witness email and SMTP fields.")
+                        if (reporter == null) {
+                            result.success("Telegram is not configured yet — fill in the bot token and channel.")
                         } else {
                             Thread {
                                 // Catch Throwable (not just Exception) so a NoClassDefFoundError from a
                                 // stripped mail class also surfaces. Report the exception type + root
                                 // cause so the real problem (auth vs provider vs TLS vs DNS) is visible.
                                 val err = try {
-                                    reporter.send(to, AlertEmail(
+                                    reporter.send(AlertEmail(
                                         "[Accountability] Setup test",
-                                        "Success — alerting works. The witness will be emailed on tamper and porn attempts."))
+                                        "Success — alerting works. This channel will be told about tamper and porn attempts."))
                                     null   // null == success
                                 } catch (e: Throwable) {
                                     val root = generateSequence(e as Throwable) { it.cause }.last()
@@ -100,6 +95,17 @@ class MainActivity : FlutterActivity() {
                                 runOnUiThread { result.success(err) }
                             }.start()
                         }
+                    }
+                    "requestTelegramWatch" -> {   // opens Accessibility settings to switch on the Telegram watch
+                        try { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } catch (e: Exception) {}
+                        result.success(true)
+                    }
+                    "openAppInfo" -> {   // Android 13+ greys out sideloaded accessibility services until "Allow restricted settings" is chosen here
+                        try {
+                            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                .setData(Uri.parse("package:$packageName")))
+                        } catch (e: Exception) {}
+                        result.success(true)
                     }
                     "requestUsageAccess" -> {   // opens the system Usage-access screen for the app-usage report
                         try { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } catch (e: Exception) {}
@@ -121,7 +127,8 @@ class MainActivity : FlutterActivity() {
                         result.success(mapOf(
                             "vpn" to isVpnActive(),
                             "admin" to AdminState.isActive(this),
-                            "watchdog" to isWatchdogScheduled()))
+                            "watchdog" to isWatchdogScheduled(),
+                            "telegramWatch" to TelegramWatch.isEnabled(this)))
                     }
                     "release" -> {
                         // Authorized release: flag it FIRST so onDisabled/watchdog don't fire false

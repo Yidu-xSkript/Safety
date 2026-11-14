@@ -49,6 +49,14 @@
                 android:value="accountability DNS filtering VPN"/>
             <intent-filter><action android:name="android.net.VpnService"/></intent-filter>
         </service>
+        <!-- Reads the chat/channel TITLE in Telegram only (scoped by android:packageNames in the config
+             below) so the hourly report can name what was opened — the only signal available, since
+             MTProto is unfilterable at the network layer. Granted by hand in Settings > Accessibility. -->
+        <service android:name="com.safety.accountability.TelegramWatch"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/telegram_watch"/>
+        </service>
         <receiver android:name="com.safety.accountability.AdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN" android:exported="true">
             <meta-data android:name="android.app.device_admin" android:resource="@xml/device_admin"/>

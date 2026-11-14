@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- packageNames is the hard scope: the OS delivers events from Telegram ONLY, so this service is
+     structurally incapable of seeing any other app's screen. Titles only — see TelegramWatch.kt. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRetrieveWindowContent="true"
+    android:accessibilityFlags="flagIncludeNotImportantViews"
+    android:notificationTimeout="300"
+    android:packageNames="org.telegram.messenger,org.telegram.messenger.web,org.telegram.plus,org.thunderdog.challegram"
+    android:description="@string/telegram_watch_description"/>

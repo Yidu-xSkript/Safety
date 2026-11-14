@@ -36,38 +36,55 @@ class AccountabilityVpnService : VpnService() {
         startForeground(NOTIF_ID, buildNotification())
         startTunnel()
         startAttemptPoller()
-        startHourlyReport()
+        startReports()
         return START_STICKY
     }
 
-    // Email ONE combined "Phone activity (hourly)" report from the always-on foreground service —
-    // reliable, unlike WorkManager which Android throttles/kills under Doze. App usage (if Usage Access
-    // granted) + domain digest (if a NextDNS API key is set); sends nothing if neither is available.
-    private fun startHourlyReport() {
+    // Send a combined "Phone activity" report from the always-on foreground service — reliable, unlike
+    // WorkManager which Android throttles/kills under Doze. Fires every 15 minutes, but only inside the
+    // agreed EAT windows (04:00–07:30 and 15:00–00:00; see ReportSchedule). Each report covers
+    // everything since the PREVIOUS one, so activity during the quiet hours isn't lost — it lands in
+    // the first report of the next window.
+    private fun startReports() {
         Thread {
+            var lastReportMs = System.currentTimeMillis()
             while (running) {
-                try { Thread.sleep(3_600_000L) } catch (e: InterruptedException) { break }   // 1 hour
+                val wait = ReportSchedule.msUntilNextTick(System.currentTimeMillis())
+                try { Thread.sleep(wait) } catch (e: InterruptedException) { break }
                 if (!running) break
-                try {
-                    val to = EnforcementState.witnessEmail
-                    val reporter = EnforcementState.reporter
-                    if (to != null && reporter != null) {
-                        val sb = StringBuilder()
-                        if (AppUsage.hasAccess(this)) sb.append(AppUsage.report(this, 3_600_000L, "hour"))
-                        val apiKey = EnforcementState.nextDnsApiKey
-                        val profileId = EnforcementState.nextDnsProfileId
-                        if (!apiKey.isNullOrBlank() && !profileId.isNullOrBlank()) {
-                            if (sb.isNotEmpty()) sb.append("\n\n")
-                            sb.append(NextDnsReport.format(
-                                NextDnsPoller.fetch(apiKey, profileId, limit = 1000, field = "root"), "hour"))
-                        }
-                        if (sb.isNotEmpty()) {
-                            reporter.send(to, AlertEmail("[Accountability] Phone activity (hourly)", sb.toString()))
-                        }
-                    }
-                } catch (e: Throwable) { }
+                val tick = System.currentTimeMillis()
+                if (!ReportSchedule.isReportTime(tick)) continue
+                val span = (tick - lastReportMs)
+                    .coerceIn(ReportSchedule.TICK_MS, ReportSchedule.MAX_LOOKBACK_MS)
+                // Only advance the mark on a real send, so a failed/unconfigured tick doesn't silently
+                // swallow the period it covered — the next report picks it up.
+                try { if (sendReport(span, ReportSchedule.label(span))) lastReportMs = tick }
+                catch (e: Throwable) { }
             }
         }.start()
+    }
+
+    // App usage (if Usage Access granted) + Telegram chat names (if the watch is on) + NextDNS domain
+    // digest (if an API key is set). Returns true only if a message actually went out.
+    private fun sendReport(windowMs: Long, windowLabel: String): Boolean {
+        val reporter = EnforcementState.reporter ?: return false
+        val sb = StringBuilder()
+        if (AppUsage.hasAccess(this)) sb.append(AppUsage.report(this, windowMs, windowLabel))
+        val chats = TelegramWatch.report(this, windowMs, windowLabel)
+        if (chats.isNotEmpty()) {
+            if (sb.isNotEmpty()) sb.append("\n\n")
+            sb.append(chats)
+        }
+        val apiKey = EnforcementState.nextDnsApiKey
+        val profileId = EnforcementState.nextDnsProfileId
+        if (!apiKey.isNullOrBlank() && !profileId.isNullOrBlank()) {
+            if (sb.isNotEmpty()) sb.append("\n\n")
+            sb.append(NextDnsReport.format(
+                NextDnsPoller.fetch(apiKey, profileId, limit = 1000, field = "root"), windowLabel))
+        }
+        if (sb.isEmpty()) return false
+        reporter.send(AlertEmail("[Accountability] Phone activity ($windowLabel)", sb.toString()))
+        return true
     }
 
     // Poll the NextDNS log for porn attempts and email the witness — the DNS-less way to get phone-side

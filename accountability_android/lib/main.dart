@@ -38,7 +38,7 @@ class _BootstrapState extends State<_Bootstrap> {
   Future<void> _route() async {
     final cfg = await ConfigStore().loadConfig();
     if (!mounted) return;
-    if (cfg != null && cfg.smtp != null) {
+    if (cfg != null && cfg.isValid) {
       try {
         final ch = EnforcementChannel();
         await ch.configure(cfg);

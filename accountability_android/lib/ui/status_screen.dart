@@ -37,7 +37,7 @@ class _StatusScreenState extends State<StatusScreen> with WidgetsBindingObserver
       final s = await EnforcementChannel().status();
       if (mounted) setState(() => _s = s);
     } catch (_) {
-      if (mounted) setState(() => _s = {'vpn': false, 'admin': false, 'watchdog': false});
+      if (mounted) setState(() => _s = {'vpn': false, 'admin': false, 'watchdog': false, 'telegramWatch': false});
     }
   }
 
@@ -66,6 +66,7 @@ class _StatusScreenState extends State<StatusScreen> with WidgetsBindingObserver
           _row('DNS filtering (VPN)', s?['vpn']),
           _row('Uninstall protection (device admin)', s?['admin']),
           _row('Background watchdog', s?['watchdog']),
+          _row('Telegram watch (Settings > Accessibility)', s?['telegramWatch']),
           const SizedBox(height: 24),
           TextButton(
             onPressed: () => Navigator.of(context)

@@ -5,25 +5,26 @@ void main() {
   group('AgentConfig', () {
     test('parses and validates a complete config', () {
       final c = AgentConfig.fromJson({
-        'witnessEmail': 'w@x.com',
+        'telegramBotToken': '123:abc',
+        'telegramChatId': '@witness_channel',
         'nextDnsDohUrl': 'https://dns.nextdns.io/abc123',
-        'smtp': {'host': 's', 'port': 587, 'username': 'u', 'appPassword': 'p', 'fromAddress': 'f@x.com'},
       });
-      expect(c.witnessEmail, 'w@x.com');
+      expect(c.telegramChatId, '@witness_channel');
       expect(c.isValid, true);
     });
 
-    test('is invalid when the witness email is missing', () {
+    test('is invalid when the Telegram bot token or channel is missing', () {
       final c = AgentConfig.fromJson({'nextDnsDohUrl': 'https://dns.nextdns.io/abc'});
       expect(c.isValid, false);
-      expect(c.validationErrors, contains('witnessEmail is required'));
+      expect(c.validationErrors, contains('telegramBotToken is required'));
+      expect(c.validationErrors, contains('telegramChatId is required'));
     });
 
     test('round-trips through toJson', () {
       final j = {
-        'witnessEmail': 'w@x.com',
+        'telegramBotToken': '123:abc',
+        'telegramChatId': '-1001234567890',
         'nextDnsDohUrl': 'https://dns.nextdns.io/abc123',
-        'smtp': {'host': 's', 'port': 587, 'username': 'u', 'appPassword': 'p', 'fromAddress': 'f@x.com'},
       };
       expect(AgentConfig.fromJson(j).toJson(), j);
     });

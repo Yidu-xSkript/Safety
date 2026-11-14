@@ -6,25 +6,25 @@ class EnforcementChannel {
 
   Future<void> configure(AgentConfig cfg) => _c.invokeMethod('configure', {
         'dohUrl': cfg.nextDnsDohUrl,
-        'witnessEmail': cfg.witnessEmail,
+        'botToken': cfg.telegramBotToken,
+        'chatId': cfg.telegramChatId,
         'nextDnsApiKey': cfg.nextDnsApiKey ?? '',
         'nextDnsProfileId': cfg.nextDnsProfileId ?? '',
-        'smtpHost': cfg.smtp!.host, 'smtpPort': cfg.smtp!.port,
-        'smtpUser': cfg.smtp!.username, 'smtpPass': cfg.smtp!.appPassword,
-        'smtpFrom': cfg.smtp!.fromAddress,
       });
   Future<bool> startVpn() async => await _c.invokeMethod('startVpn') as bool;
   Future<void> startWatchdog() => _c.invokeMethod('startWatchdog');
   Future<void> requestAdmin() => _c.invokeMethod('requestAdmin');
   Future<void> release() => _c.invokeMethod('release');
   Future<void> alertReleaseAttempt() => _c.invokeMethod('alertReleaseAttempt');
+  Future<void> requestTelegramWatch() => _c.invokeMethod('requestTelegramWatch');
+  Future<void> openAppInfo() => _c.invokeMethod('openAppInfo');
   Future<void> requestUsageAccess() => _c.invokeMethod('requestUsageAccess');
   Future<void> requestBatteryExemption() => _c.invokeMethod('requestBatteryExemption');
 
-  // Sends a real test email via the configured SMTP. Returns null on success, or an error message.
-  Future<String?> testEmail() async => await _c.invokeMethod('testEmail') as String?;
+  // Posts a real test message to the Telegram channel. Returns null on success, or an error message.
+  Future<String?> testReport() async => await _c.invokeMethod('testReport') as String?;
 
-  // Real protection state: { 'vpn', 'admin', 'watchdog' } → each true only if actually on.
+  // Real protection state: { 'vpn', 'admin', 'watchdog', 'telegramWatch' } → each true only if actually on.
   Future<Map<String, bool>> status() async {
     final r = await _c.invokeMethod('status');
     final m = Map<String, dynamic>.from(r as Map);

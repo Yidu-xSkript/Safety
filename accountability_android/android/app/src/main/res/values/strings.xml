@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="telegram_watch_description">Reports the names of Telegram chats and channels you open to your accountability witness. It reads chat titles only — never message contents — and only inside Telegram.</string>
+</resources>
