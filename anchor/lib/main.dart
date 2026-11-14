@@ -1,17 +1,25 @@
+import 'dart:async';
+
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
+import 'app/navigation.dart';
 import 'app/shell.dart';
 import 'app/theme.dart';
 import 'core/backend/pod_backend.dart';
 import 'core/backend/supabase_backend.dart';
+import 'core/push/push_service.dart';
+import 'core/shortcuts.dart';
 import 'features/onboarding/onboarding.dart';
 import 'features/pod/pairing_screens.dart';
 import 'features/pod/pod_controller.dart';
+import 'features/pod/push_controller.dart';
 import 'features/today/solo_controller.dart';
+import 'features/urge/urge_flow.dart';
 import 'l10n/app_localizations.dart';
 
 Future<void> main() async {
@@ -19,7 +27,13 @@ Future<void> main() async {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   // Pairing needs a server: flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
   if (supabaseConfigured) await Supabase.initialize(url: kSupabaseUrl, publishableKey: kSupabaseAnonKey);
-  runApp(const ProviderScope(child: AnchorApp()));
+  // Notifications need a Firebase project (docs/PUSH.md). Without its config files this throws and we run without push.
+  PushService push = NoPush();
+  try {
+    await Firebase.initializeApp();
+    push = FirebasePush();
+  } catch (_) {}
+  runApp(ProviderScope(overrides: [pushServiceProvider.overrideWithValue(push)], child: const AnchorApp()));
 }
 
 class AnchorApp extends ConsumerStatefulWidget {
@@ -41,11 +55,40 @@ class _AnchorAppState extends ConsumerState<AnchorApp> {
       ref.read(soloProvider.notifier).refreshDay();
       ref.read(podProvider.notifier).refresh(); // partner may have changed things while we slept
       ref.read(podProvider.notifier).flush();
+      ref.read(pushProvider.notifier).sync(); // make sure the server has this phone's token
     });
+    _outside();
+  }
+
+  StreamSubscription<PushRoute>? _opened;
+
+  /// Things that start outside the widget tree: the "Urge" icon shortcut and a tapped notification.
+  void _outside() {
+    ref.read(shortcutsProvider).init(() {
+      final c = navigatorKey.currentContext;
+      if (c != null) openUrge(c);
+    });
+    final push = ref.read(pushServiceProvider);
+    _opened = push.onOpened.listen(_route);
+    push.initialRoute().then((r) {
+      if (r != null) _route(r);
+    });
+  }
+
+  /// A notification was tapped. Refresh first (the app may have been asleep), then land where it points.
+  Future<void> _route(PushRoute r) async {
+    await ref.read(podProvider.future);
+    await ref.read(podProvider.notifier).refresh();
+    final c = navigatorKey.currentContext;
+    final p = ref.read(podProvider).value;
+    if (c == null || !c.mounted || r.kind != PushRouteKind.urge) return; // today / pod: the app already opens on Today
+    final urge = p?.partnerUrge;
+    if (urge != null) await replyToUrge(c, partnerName: p?.pod?.partnerName ?? '', urgeId: urge.id);
   }
 
   @override
   void dispose() {
+    _opened?.cancel();
     _lifecycle.dispose();
     super.dispose();
   }
@@ -53,6 +96,7 @@ class _AnchorAppState extends ConsumerState<AnchorApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       onGenerateTitle: (c) => AppLocalizations.of(c).appName,
       theme: anchorTheme(Brightness.light),
       darkTheme: anchorTheme(Brightness.dark),

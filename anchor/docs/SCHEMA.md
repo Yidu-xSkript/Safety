@@ -48,6 +48,7 @@ local_date = ((now() at time zone 'utc') + utc_offset_min - day_start_hour hours
 | `my_pod()` | caller | pod id, status, code, partner id and name in one call |
 | `upsert_check_in(pod, day, status, note)` | caller | the pledge; replaces the same day's answer |
 | `upsert_habit(id, pod, title, created, archived)` | caller | create or rename/archive a habit |
+| `register_device(platform, token)` | definer | (`0002_push.sql`) store this phone's push token; the newest registration wins, so a shared phone or reinstall never collides with the old owner |
 
 Codes use a 31-symbol alphabet without `0 O 1 I` (~887M codes), generated from a v4 UUID's random bytes.
 
@@ -60,7 +61,7 @@ Codes use a 31-symbol alphabet without `0 O 1 I` (~887M codes), generated from a
 
 `pods, pod_members, check_ins, habit_logs, habits, urge_events, encouragements` are in the `supabase_realtime` publication. The client subscribes per pod (`postgres_changes`, filtered on `pod_id`/`id`) and just refetches when anything fires; Realtime applies RLS, so a partner only receives rows they may already read.
 
-## Push triggers (Phase 3: Database Webhooks → Edge Function `notify`)
+## Push triggers (Phase 3: Database Webhooks → Edge Function `notify`, see `docs/PUSH.md`)
 
 | Event | Recipient |
 |---|---|
@@ -79,13 +80,13 @@ Wording is fixed in `SECURITY.md`.
 
 ## Tests
 
-`supabase/tests/run.mjs` runs the migration and `rls.sql` (15 sections) on an in-process Postgres (PGlite) with Supabase stand-ins from `stubs.sql`. No Docker or Supabase needed:
+`supabase/tests/run.mjs` runs the migration and `rls.sql` (17 sections) on an in-process Postgres (PGlite) with Supabase stand-ins from `stubs.sql`. No Docker or Supabase needed:
 
 ```bash
 # once, anywhere outside the repo:  npm install @electric-sql/pglite
 PGLITE_DIR=<that folder> node supabase/tests/run.mjs
 ```
 
-Covered: code format and single use; wrong-code rate limit; two-member trigger; expiry; partner visibility; an outsider sees nothing in any table; no writing as someone else or outside the two-day window; closed days locked; no deletes; urge/encouragement scoping; private push tokens; leaving ends access; anonymous callers refused. The tests were checked for teeth by weakening four rules (open `select`, removed limiter insert, removed day-lock trigger, granted `delete`) and confirming each failed.
+`urge_events` insert, retract and resolve are owner-only (the partner updates 0 rows; key columns are not updatable). Covered: code format and single use; wrong-code rate limit; two-member trigger; expiry; partner visibility; an outsider sees nothing in any table; no writing as someone else or outside the two-day window; closed days locked; no deletes; urge/encouragement scoping; private push tokens; leaving ends access; anonymous callers refused. The tests were checked for teeth by weakening four rules (open `select`, removed limiter insert, removed day-lock trigger, granted `delete`) and confirming each failed.
 
 Not covered here: two *simultaneous* joins (serialised by the `for update` row lock; PGlite has a single connection). Test that against a real project before launch.

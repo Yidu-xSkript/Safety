@@ -53,11 +53,12 @@ States: loading (slabs as hollow skeleton rings), offline banner ("Saved. Will s
 ### 8. Slip sheet (modal bottom sheet / iOS sheet)
 Copy in `SOUL.md`. Note field optional. **Tell Teo** sends; **Not yet** dismisses without saving. Never shows red; the ring that results is frost with the notch.
 
-### 9. Urge (night register, full screen)
+### 9. Urge (night register, full screen) — built in Phase 3
+Built as described: opens within two frames with no network; the ping is queued first and goes out at once online (copy switches from "will be told the moment you're back online" to "has been told"); one slow ring (4 s in / 6 s out; still under Remove animations, with words and a soft haptic at each turn); one instruction a minute; the partner's reply appears as a card; Call/Text only with a number saved on this device (the setting arrives in Phase 4); the crisis-resource row stays behind `kShowCrisisResources = false` until the owner supplies a vetted list.
 Opens **immediately** on tap, and sends the ping at once. No confirmation dialog. Top: "Teo has been told." Centre: one breathing ring (4 s in, 6 s out; Reduce Motion → text "In." / "Out." plus haptic ticks). Below: one instruction at a time, monumental type. 3:00 countdown in small text. Partner reply appears as a quiet card with **Call** / **Text** only if the user saved Teo's number locally. Bottom: **That was a mistake** (text button, retracts and sends all-clear), **Need more than a partner?** (feature-flagged, see SECURITY.md).
 End screen: "How are you now?" with three answers; "I slipped" continues to the slip sheet, gently.
 
-### 10. Reply sheet (partner side)
+### 10. Reply sheet (partner side) — built in Phase 3
 Opened from the urge push. Shows "Teo is reaching out." and 4 large prepared-reply buttons (here, call me, walk, proud) plus **Call** / **Text** if a number is saved. One tap sends and closes; confirmation is a snackbar/toast "Sent."
 
 ### 11. History
@@ -66,9 +67,17 @@ Top: week strip (you / Teo). Below: month grid; each day cell = two ring glyphs 
 ### 12. Pod (tab)
 Large title "Pod". Rows (grouped list, platform style): Partner (name, "paired since…"), Daily reminder time, App lock, Partner's number (device-only), Help and resources, Secure your pod, Leave pod, Delete account. Leave and Delete use platform confirm dialogs with plain consequence text.
 
-## Notification deep links
+## Notification taps
 
-`anchor://urge/{id}`, `anchor://today`, `anchor://pod`. Routes never contain names or content.
+The `notify` function sends `data: {route: urge|today|pod, id?: <uuid>}` (ids only, never names or content). A tap on *reaching out* refreshes first, then opens the reply sheet if that urge is still open; `today` and `pod` just open the app. There are no URL-scheme deep links: nothing outside the app can open a screen by address.
+
+## Today signal cards (Phase 3)
+
+Above the pod header, only when there is something to answer, each a quiet card:
+- **{Name} is reaching out.** + *Reply* (opens the reply sheet; gone once you have replied or they retract).
+- **{Name} posted an update.** + their note + *Reply* (slip replies: thank you / tomorrow is a new ring / call me / proud of you).
+- **{Name}: {kind word}**: a reply they sent you today.
+- **Know when {Name} reaches out**: the one-time notification prompt (*Turn on notifications* / *Not now*).
 
 ## Component map (use these; do not invent)
 

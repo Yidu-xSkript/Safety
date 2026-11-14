@@ -26,10 +26,12 @@ Each phase ends in something a real person can use. Do not start phase N+1 with 
 - **Still to do before this is "accepted":** run the migration on a real Supabase project (steps in `supabase/README.md`) and pair two physical phones; test two simultaneous joins on one code. The Supabase client (`supabase_backend.dart`) has never talked to a live server.
 - **Deferred:** the sync chip ("In sync" / "Waiting on Teo") moved to Phase 4 with the nudge; an archived pod just returns you to the pairing choice until leave-pod lands in Phase 4; `flutter_secure_storage` for the session moves to Phase 5 with app lock.
 
-## Phase 3 — The hard moment (3–5 days)
+## Phase 3 — The hard moment (3–5 days) · built, not accepted (no push has been sent to a real phone)
 - Firebase project (messaging only), device registration, `notify` Edge Function, generic wording from `SECURITY.md`.
 - Urge flow end to end: instant open, ping, breathing guide, partner reply sheet, retract, end screen. Slip push and reply.
 - Android channels, iOS time-sensitive level, app-icon shortcuts, deep links.
+- **Built:** the grounding screen (night register, breathing ring, one step a minute, end screen, "that was a mistake"), instant and offline-safe; the urge, retract and resolve ops with urgent ordering and stale-ping dropping; partner signal cards and the prepared-reply sheet (urge replies and slip replies, Call/Text when a number is saved); notification consent with a reason first and a remembered "Not now"; token registration (`register_device`); tap routing; the icon shortcut; the `notify` Edge Function (rules, exact wording, FCM JWT signing: 10 Node tests); Android channels, permission and conditional Google Services plugin; iOS `remote-notification`; `docs/PUSH.md`. 17 SQL sections, 167+ Dart tests.
+- **Not done, needs you:** the Firebase project and APNs key, Xcode capabilities on a Mac, deploying `notify` and creating the webhooks (`docs/PUSH.md`), and the acceptance checklist on two real phones. `firebase_messaging` and the Android Gradle change have never been built (SDK licences) or run.
 - **Accept:** on real hardware, pressing Urge notifies the partner in <5 s on average; lock-screen text matches the table; Urge works fully offline and sends on reconnect; no flashing or fast motion anywhere (checked against Reduce Motion).
 
 ## Phase 4 — History and care (2–4 days)

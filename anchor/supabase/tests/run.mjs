@@ -2,7 +2,7 @@
 //   PGLITE_DIR=<folder with node_modules/@electric-sql/pglite> node supabase/tests/run.mjs
 // Install once anywhere outside the repo:  npm install @electric-sql/pglite
 // (On a real Supabase project, run the migration only; stubs.sql is for this runner.)
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -17,8 +17,12 @@ const read = (p) => readFileSync(join(here, p), 'utf8');
 
 const db = new PGlite();
 await db.exec(read('stubs.sql'));
-await db.exec(process.env.MIGRATION ? readFileSync(process.env.MIGRATION, 'utf8') : read('../migrations/0001_init.sql'));
-console.log('ok   migration applies');
+// Every migration in order. MIGRATION=<file> swaps in a single file (used to mutation-test the rules).
+const migrations = process.env.MIGRATION
+  ? [process.env.MIGRATION]
+  : readdirSync(join(here, '../migrations')).filter((f) => f.endsWith('.sql')).sort().map((f) => join(here, '../migrations', f));
+for (const m of migrations) await db.exec(readFileSync(m, 'utf8'));
+console.log(`ok   ${migrations.length} migration(s) apply`);
 
 // Sections are marked "-- @test name" and share state, so they run in order.
 const sections = read('rls.sql').split(/^-- @test /m).slice(1);

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Notification channel names, visible in system settings. Deliberately neutral. -->
+    <string name="channel_urge">Reaching out</string>
+    <string name="channel_pod">Pod updates</string>
+    <string name="channel_reminders">Reminders</string>
+</resources>

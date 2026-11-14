@@ -182,3 +182,28 @@ ThemeData anchorTheme(Brightness brightness, {TargetPlatform? platform}) {
     ),
   );
 }
+
+/// The Urge screen's own look: a dim ground, one warm hue, no pure white. Controls built from the theme
+/// (buttons, text) inherit it, so the night screen needs no custom widgets.
+ThemeData anchorNightTheme(ThemeData base) {
+  final scheme = base.colorScheme.copyWith(
+    brightness: Brightness.dark,
+    primary: NightPalette.ember,
+    onPrimary: NightPalette.ground,
+    surface: NightPalette.ground,
+    onSurface: NightPalette.lampText,
+    onSurfaceVariant: NightPalette.lampText.withValues(alpha: 0.72),
+    outline: NightPalette.ember.withValues(alpha: 0.6),
+  );
+  return base.copyWith(
+    colorScheme: scheme,
+    scaffoldBackgroundColor: NightPalette.ground,
+    textTheme: base.textTheme.apply(bodyColor: NightPalette.lampText, displayColor: NightPalette.lampText),
+    cupertinoOverrideTheme: const NoDefaultCupertinoThemeData(
+      brightness: Brightness.dark,
+      primaryColor: NightPalette.ember,
+      scaffoldBackgroundColor: NightPalette.ground,
+      barBackgroundColor: NightPalette.ground,
+    ),
+  );
+}

@@ -6,6 +6,7 @@ import '../../l10n/app_localizations.dart';
 import '../rings/pod_header.dart';
 import 'solo_controller.dart';
 import 'widgets/habits_card.dart';
+import 'widgets/partner_signals.dart';
 import 'widgets/pledge_card.dart';
 import 'widgets/week_strip.dart';
 
@@ -26,6 +27,7 @@ class TodayPage extends ConsumerWidget {
       onUrge: onUrge,
       large: false,
       children: [
+        const PartnerSignals(),
         PodHeader(youName: v.name, partnerName: v.partnerName, you: v.you, partner: v.partner, podStreak: v.podStreak),
         const SizedBox(height: 24),
         const PledgeCard(),

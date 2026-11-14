@@ -35,7 +35,7 @@ Two phones never talk to each other. The pod is a row; both phones watch it.
 | Streaks | Computed on the client in one pure Dart function | One implementation, unit-tested, works offline | A server-side feature (e.g. email digest) needs them |
 | l10n | `flutter_localizations` + ARB from day one, English only | Amharic is a candidate; retrofitting strings is painful | — |
 
-Dependencies are exactly: `supabase_flutter`, `flutter_riverpod`, `go_router`, `firebase_core`, `firebase_messaging`, `flutter_local_notifications`, `shared_preferences`, `flutter_secure_storage`, `local_auth`, `intl`, `url_launcher` (call/text), `cupertino_icons` (bundles the font `CupertinoIcons` draws from; added in Phase 0). In so far: Phase 0 `cupertino_icons`, `intl`; Phase 1 `flutter_riverpod`, `shared_preferences`; Phase 2 `supabase_flutter`, `share_plus` (the system share sheet for the invite code). Not yet: `go_router`, `firebase_*`, `local_auth`, `flutter_secure_storage`, `url_launcher` (their phases). Adding one needs a reason in the PR.
+Dependencies are exactly: `supabase_flutter`, `flutter_riverpod`, `go_router`, `firebase_core`, `firebase_messaging`, `flutter_local_notifications`, `shared_preferences`, `flutter_secure_storage`, `local_auth`, `intl`, `url_launcher` (call/text), `cupertino_icons` (bundles the font `CupertinoIcons` draws from; added in Phase 0). In so far: Phase 0 `cupertino_icons`, `intl`; Phase 1 `flutter_riverpod`, `shared_preferences`; Phase 2 `supabase_flutter`, `share_plus` (the system share sheet for the invite code). Phase 3 added `firebase_core`, `firebase_messaging`, `url_launcher` (Call/Text), `quick_actions`. Not yet: `go_router`, `local_auth`, `flutter_secure_storage`, `flutter_local_notifications` (their phases). Adding one needs a reason in the PR.
 
 ## Code layout (feature-first)
 
@@ -105,14 +105,16 @@ Each feature folder splits `data/` (repository, Supabase calls), `domain/` (pure
 - The grounding screen works with zero network. The partner ping queues and shows "Teo will be told as soon as you're back online" (calm, truthful).
 - Conflict rule: the server wins except for same-day pledge edits by the owner (last write wins).
 
-## Push
+## Push (as built in Phase 3; full walkthrough in `docs/PUSH.md`)
 
-1. After sign-in and pod join, `push.dart` asks for notification permission **with a rationale screen first** (never cold), then upserts `{platform, push_token}` into `devices`.
-2. Database webhooks (see `SCHEMA.md`) call `notify`, which loads the partner's device tokens with the service role and sends FCM v1 messages using the fixed generic wording in `SECURITY.md`.
-3. Android: three channels: *Pod* (default), *Urge* (high importance), *Reminders* (low). iOS: Urge uses `interruption-level: time-sensitive`. No Critical Alerts (requires Apple approval, not warranted).
-4. Notification tap deep-links via `go_router`: urge → partner reply sheet; slip → partner view; nudge → Today.
-5. Local daily reminder (user-set time, default 21:30) via `flutter_local_notifications`; silent if already checked in.
-6. App shortcuts: Android static shortcut and iOS Home Screen quick action "Urge" jump straight to the grounding screen (two actions from the home screen; the lock-screen path is the same shortcut after unlock).
+1. **Consent:** Today shows *why* first (a card), and the system permission dialog appears only after "Turn on notifications". "Not now" is remembered (`anchor.push.asked`). A build without Firebase (`NoPush`) never asks.
+2. **Token:** `PushController` registers the FCM token via `register_device` after consent, on every launch/resume, when a pod becomes active, and when Firebase rotates it.
+3. **Send:** Database Webhooks call the `notify` Edge Function (`decide` → recipients → `message` → `fcmBody` → FCM HTTP v1). Fixed generic wording only; ids in `data`.
+4. **Receive:** foreground: Realtime refetches and a Today card appears (no duplicate banner). Background/closed: the system shows the notification; a tap refreshes, then opens the reply sheet if the urge is still open (`main.dart` `_route`).
+5. **Android:** channels `urge` (high), `pod`, `reminders` are created in `MainActivity` (no plugin); `POST_NOTIFICATIONS` is requested at runtime. **iOS:** `time-sensitive` for urges; Critical Alerts are not used.
+6. **Icon shortcut:** `quick_actions` (`core/shortcuts.dart`) opens the grounding screen; `urgeOpenProvider` makes a second press a no-op.
+7. **Urgent ops:** urge creation/retraction and replies are queued ahead of ordinary ops (in order among themselves); a queued ping older than 30 minutes is dropped, never delivered as a fresh alarm.
+8. **Local daily reminder** (`flutter_local_notifications`) arrives in Phase 4.
 
 ## Adaptive UI
 

@@ -4,6 +4,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase (notifications) is wired in only when its config file is present: without a Firebase project the
+// app still builds and runs, just without push. See docs/PUSH.md.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.anchor.anchor"
     compileSdk = flutter.compileSdkVersion

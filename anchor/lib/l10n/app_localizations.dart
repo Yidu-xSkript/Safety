@@ -191,12 +191,6 @@ abstract class AppLocalizations {
     String pledge,
   );
 
-  /// No description provided for @urgePlaceholderTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'The Urge flow arrives in a later phase.'**
-  String get urgePlaceholderTitle;
-
   /// No description provided for @close.
   ///
   /// In en, this message translates to:
@@ -592,6 +586,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Anchor isn\'t connected to a server yet.'**
   String get errNotConfigured;
+
+  /// No description provided for @urgeToldYes.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} has been told.'**
+  String urgeToldYes(String name);
+
+  /// No description provided for @urgeQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} will be told the moment you\'re back online. The next three minutes are yours.'**
+  String urgeQueued(String name);
+
+  /// No description provided for @urgeStay.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay with me for three minutes.'**
+  String get urgeStay;
+
+  /// No description provided for @urgeStep1.
+  ///
+  /// In en, this message translates to:
+  /// **'Stand up.'**
+  String get urgeStep1;
+
+  /// No description provided for @urgeStep2.
+  ///
+  /// In en, this message translates to:
+  /// **'Drink a glass of water.'**
+  String get urgeStep2;
+
+  /// No description provided for @urgeStep3.
+  ///
+  /// In en, this message translates to:
+  /// **'Put the phone in another room, or face down.'**
+  String get urgeStep3;
+
+  /// No description provided for @breathIn.
+  ///
+  /// In en, this message translates to:
+  /// **'In.'**
+  String get breathIn;
+
+  /// No description provided for @breathOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Out.'**
+  String get breathOut;
+
+  /// No description provided for @urgeMistake.
+  ///
+  /// In en, this message translates to:
+  /// **'That was a mistake'**
+  String get urgeMistake;
+
+  /// No description provided for @urgeMistakeSent.
+  ///
+  /// In en, this message translates to:
+  /// **'All clear sent.'**
+  String get urgeMistakeSent;
+
+  /// No description provided for @urgeReplyLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}: {text}'**
+  String urgeReplyLine(String name, String text);
+
+  /// No description provided for @urgeCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call'**
+  String get urgeCall;
+
+  /// No description provided for @urgeText.
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get urgeText;
+
+  /// No description provided for @urgeEndTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How are you now?'**
+  String get urgeEndTitle;
+
+  /// No description provided for @urgeEndPassed.
+  ///
+  /// In en, this message translates to:
+  /// **'It passed'**
+  String get urgeEndPassed;
+
+  /// No description provided for @urgeEndMore.
+  ///
+  /// In en, this message translates to:
+  /// **'I need more time'**
+  String get urgeEndMore;
+
+  /// No description provided for @urgeEndSlipped.
+  ///
+  /// In en, this message translates to:
+  /// **'I slipped'**
+  String get urgeEndSlipped;
+
+  /// No description provided for @urgeHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Need more than a partner?'**
+  String get urgeHelp;
+
+  /// No description provided for @reachingOut.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is reaching out.'**
+  String reachingOut(String name);
+
+  /// No description provided for @postedUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} posted an update.'**
+  String postedUpdate(String name);
+
+  /// No description provided for @replyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply'**
+  String get replyAction;
+
+  /// No description provided for @replySent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent.'**
+  String get replySent;
+
+  /// No description provided for @replyHere.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m here.'**
+  String get replyHere;
+
+  /// No description provided for @replyCallMe.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m here. Call me?'**
+  String get replyCallMe;
+
+  /// No description provided for @replyWalk.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk with me?'**
+  String get replyWalk;
+
+  /// No description provided for @replyProud.
+  ///
+  /// In en, this message translates to:
+  /// **'Proud of you.'**
+  String get replyProud;
+
+  /// No description provided for @replyThankYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you for telling me.'**
+  String get replyThankYou;
+
+  /// No description provided for @replyNewRing.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow is a new ring.'**
+  String get replyNewRing;
+
+  /// No description provided for @pushRationaleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Know when {name} reaches out'**
+  String pushRationaleTitle(String name);
+
+  /// No description provided for @pushRationaleBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Anchor can notify you quietly. Notifications never say what this app is for.'**
+  String get pushRationaleBody;
+
+  /// No description provided for @pushEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on notifications'**
+  String get pushEnable;
+
+  /// No description provided for @pushNotNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get pushNotNow;
 }
 
 class _AppLocalizationsDelegate

@@ -37,6 +37,36 @@ class PodInfo {
       );
 }
 
+/// A partner's open urge: reaching out, not retracted, not resolved, recent.
+class UrgeInfo {
+  const UrgeInfo({required this.id, required this.createdAt});
+
+  final String id;
+  final DateTime createdAt;
+}
+
+/// A prepared reply between the two partners. [template] is the server key (`here`, `call_me`, ...).
+class ReplyInfo {
+  const ReplyInfo({required this.id, required this.fromMe, required this.template, required this.createdAt, this.urgeId});
+
+  final String id;
+  final bool fromMe;
+  final String template;
+  final String? urgeId;
+  final DateTime createdAt;
+}
+
+/// Things the partner did that this phone should react to.
+class PodActivity {
+  const PodActivity({this.partnerUrge, this.replies = const []});
+
+  final UrgeInfo? partnerUrge;
+  final List<ReplyInfo> replies; // involving me, newest first, last ~2 days
+}
+
+/// An urge older than this is stale: a ping that sat in the queue for hours must not arrive as an alarm.
+const kUrgeFreshness = Duration(minutes: 30);
+
 enum PodErrorKind { alreadyInPod, invalidCode, tooManyAttempts, offline, notConfigured, other }
 
 /// Every failure the UI can show, already sorted. Anything unrecognised is [PodErrorKind.other].
@@ -70,6 +100,20 @@ sealed class SyncOp {
             title: j['title'] as String,
             createdDay: parseDayKey(j['created'] as String),
             archivedDay: j['archived'] == null ? null : parseDayKey(j['archived'] as String),
+          ),
+        'urge' => UrgeOp(podId: j['pod'] as String, id: j['id'] as String, at: DateTime.parse(j['at'] as String)),
+        'urgeUpdate' => UrgeUpdateOp(
+            id: j['id'] as String,
+            retract: j['retract'] as bool,
+            outcome: j['outcome'] as String?,
+          ),
+        'reply' => ReplyOp(
+            podId: j['pod'] as String,
+            id: j['id'] as String,
+            toUser: j['to'] as String,
+            kind: j['kind'] as String,
+            template: j['template'] as String,
+            urgeId: j['urge'] as String?,
           ),
         'tick' => TickOp(podId: j['pod'] as String, habitId: j['habit'] as String, day: parseDayKey(j['day'] as String), on: j['on'] as bool),
         _ => throw FormatException('unknown op ${j['type']}'),
@@ -129,6 +173,55 @@ class TickOp extends SyncOp {
   Map<String, Object?> toJson() => {'type': 'tick', 'pod': podId, 'habit': habitId, 'day': dayKey(day), 'on': on};
 }
 
+/// Reaching out. Created the instant the Urge button is pressed; the client picks the id so a replay is harmless.
+class UrgeOp extends SyncOp {
+  const UrgeOp({required this.podId, required this.id, required this.at});
+
+  final String podId;
+  final String id;
+  final DateTime at;
+
+  @override
+  String get key => 'u:$id';
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'urge', 'pod': podId, 'id': id, 'at': at.toUtc().toIso8601String()};
+}
+
+/// "That was a mistake" ([retract]) or how it ended ([outcome]: passed / slipped / need_more).
+class UrgeUpdateOp extends SyncOp {
+  const UrgeUpdateOp({required this.id, this.retract = false, this.outcome});
+
+  final String id;
+  final bool retract;
+  final String? outcome;
+
+  @override
+  String get key => 'uu:$id';
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'urgeUpdate', 'id': id, 'retract': retract, 'outcome': outcome};
+}
+
+/// A prepared reply to the partner. Never free text.
+class ReplyOp extends SyncOp {
+  const ReplyOp({required this.podId, required this.id, required this.toUser, required this.kind, required this.template, this.urgeId});
+
+  final String podId;
+  final String id;
+  final String toUser;
+  final String kind; // urge_reply | slip_reply
+  final String template;
+  final String? urgeId;
+
+  @override
+  String get key => 'r:$id';
+
+  @override
+  Map<String, Object?> toJson() =>
+      {'type': 'reply', 'pod': podId, 'id': id, 'to': toUser, 'kind': kind, 'template': template, 'urge': urgeId};
+}
+
 abstract class PodBackend {
   /// False when no server is configured (a bare `flutter run`). Pairing then fails with [PodErrorKind.notConfigured].
   bool get configured;
@@ -144,6 +237,12 @@ abstract class PodBackend {
 
   /// The partner's name, habits, pledges and ticks since 60 days before [today], shaped like [SoloData].
   Future<SoloData> fetchPartner(PodInfo pod, DateTime today);
+
+  /// The partner's open urge (if any) and the replies between us. Called on every refresh.
+  Future<PodActivity> fetchActivity(PodInfo pod, DateTime now);
+
+  /// Tells the server where to send this phone's notifications.
+  Future<void> registerDevice(String platform, String token);
 
   /// Fires when anything in the pod changes; the caller refetches. No payloads on purpose.
   Stream<void> changes(String podId);
@@ -174,6 +273,10 @@ class UnconfiguredBackend implements PodBackend {
   Future<void> leavePod() async => _no();
   @override
   Future<SoloData> fetchPartner(PodInfo pod, DateTime today) async => _no();
+  @override
+  Future<PodActivity> fetchActivity(PodInfo pod, DateTime now) async => _no();
+  @override
+  Future<void> registerDevice(String platform, String token) async => _no();
   @override
   Stream<void> changes(String podId) => const Stream.empty();
   @override

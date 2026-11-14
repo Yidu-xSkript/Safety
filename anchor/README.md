@@ -2,7 +2,7 @@
 
 A two-person accountability pod. Once a day each partner logs one honest line, ticks a few daily habits, and sees the other's state in real time. A single Urge button pings your partner and walks you through three calm minutes. Every day is a growth ring; an honest slip is a scar the tree grows past.
 
-Flutter (Android + iOS) · Supabase · adaptive Material 3 / Cupertino. Status: **Phases 0-2 built: theme, ring painters, adaptive shell, the daily loop, and pairing with offline sync. The SQL is tested; the Supabase client has not yet met a live project (see supabase/README.md). See docs/ROADMAP.md.**
+Flutter (Android + iOS) · Supabase · adaptive Material 3 / Cupertino. Status: **Phases 0-3 built: theme, rings, shell, the daily loop, pairing with offline sync, and the hard moment (Urge grounding, partner replies, push). The SQL and the push rules are tested; the Supabase client and real notifications have not yet met a live project or a phone (see supabase/README.md and docs/PUSH.md).**
 
 > A tool, not treatment. Anchor supports recovery; it doesn't replace counselling, a support group or professional help.
 
@@ -18,6 +18,7 @@ Flutter (Android + iOS) · Supabase · adaptive Material 3 / Cupertino. Status: 
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Stack decisions, code layout, domain rules, offline, push |
 | [docs/SCHEMA.md](docs/SCHEMA.md) | Postgres tables, RLS, RPCs, triggers, tests |
 | [docs/SECURITY.md](docs/SECURITY.md) | Privacy, notification wording, threat model |
+| [docs/PUSH.md](docs/PUSH.md) | Notifications end to end: wording, Firebase/APNs/Supabase setup, acceptance checklist |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Phases with acceptance criteria |
 | [docs/PROMPT.md](docs/PROMPT.md) | Master and per-phase prompts to build it with Claude Code |
 | [supabase/README.md](supabase/README.md) | Backend files, running the SQL tests, connecting a project |

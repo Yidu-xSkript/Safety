@@ -28,11 +28,12 @@ void main() {
     expect(find.descendant(of: fab, matching: find.text('Urge')), findsOneWidget);
 
     await t.tap(fab);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
+    expect(find.text('Stay with me for three minutes.'), findsOneWidget);
+    await t.binding.handlePopRoute(); // system Back always leaves
     await t.pumpAndSettle();
-    expect(find.textContaining('Urge flow'), findsOneWidget);
-    await t.tap(find.text('Close'));
-    await t.pumpAndSettle();
-    expect(find.textContaining('Urge flow'), findsNothing);
+    expect(find.text('Stay with me for three minutes.'), findsNothing);
   });
 
   testWidgets('Android tablet width switches to a NavigationRail', (t) async {
@@ -64,8 +65,9 @@ void main() {
     expect(find.byType(FloatingActionButton), findsNothing);
 
     await t.tap(find.widgetWithText(CupertinoButton, 'Urge'));
-    await t.pumpAndSettle();
-    expect(find.textContaining('Urge flow'), findsOneWidget);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
+    expect(find.text('Stay with me for three minutes.'), findsOneWidget);
   });
 
   testWidgets('Today reads as one semantic label per slab', (t) async {

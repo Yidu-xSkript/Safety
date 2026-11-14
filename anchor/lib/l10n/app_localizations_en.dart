@@ -87,9 +87,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get urgePlaceholderTitle => 'The Urge flow arrives in a later phase.';
-
-  @override
   String get close => 'Close';
 
   @override
@@ -317,4 +314,113 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errNotConfigured => 'Anchor isn\'t connected to a server yet.';
+
+  @override
+  String urgeToldYes(String name) {
+    return '$name has been told.';
+  }
+
+  @override
+  String urgeQueued(String name) {
+    return '$name will be told the moment you\'re back online. The next three minutes are yours.';
+  }
+
+  @override
+  String get urgeStay => 'Stay with me for three minutes.';
+
+  @override
+  String get urgeStep1 => 'Stand up.';
+
+  @override
+  String get urgeStep2 => 'Drink a glass of water.';
+
+  @override
+  String get urgeStep3 => 'Put the phone in another room, or face down.';
+
+  @override
+  String get breathIn => 'In.';
+
+  @override
+  String get breathOut => 'Out.';
+
+  @override
+  String get urgeMistake => 'That was a mistake';
+
+  @override
+  String get urgeMistakeSent => 'All clear sent.';
+
+  @override
+  String urgeReplyLine(String name, String text) {
+    return '$name: $text';
+  }
+
+  @override
+  String get urgeCall => 'Call';
+
+  @override
+  String get urgeText => 'Text';
+
+  @override
+  String get urgeEndTitle => 'How are you now?';
+
+  @override
+  String get urgeEndPassed => 'It passed';
+
+  @override
+  String get urgeEndMore => 'I need more time';
+
+  @override
+  String get urgeEndSlipped => 'I slipped';
+
+  @override
+  String get urgeHelp => 'Need more than a partner?';
+
+  @override
+  String reachingOut(String name) {
+    return '$name is reaching out.';
+  }
+
+  @override
+  String postedUpdate(String name) {
+    return '$name posted an update.';
+  }
+
+  @override
+  String get replyAction => 'Reply';
+
+  @override
+  String get replySent => 'Sent.';
+
+  @override
+  String get replyHere => 'I\'m here.';
+
+  @override
+  String get replyCallMe => 'I\'m here. Call me?';
+
+  @override
+  String get replyWalk => 'Walk with me?';
+
+  @override
+  String get replyProud => 'Proud of you.';
+
+  @override
+  String get replyThankYou => 'Thank you for telling me.';
+
+  @override
+  String get replyNewRing => 'Tomorrow is a new ring.';
+
+  @override
+  String pushRationaleTitle(String name) {
+    return 'Know when $name reaches out';
+  }
+
+  @override
+  String get pushRationaleBody =>
+      'Anchor can notify you quietly. Notifications never say what this app is for.';
+
+  @override
+  String get pushEnable => 'Turn on notifications';
+
+  @override
+  String get pushNotNow => 'Not now';
 }

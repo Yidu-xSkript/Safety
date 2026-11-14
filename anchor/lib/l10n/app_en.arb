@@ -76,7 +76,6 @@
       }
     }
   },
-  "urgePlaceholderTitle": "The Urge flow arrives in a later phase.",
   "close": "Close",
   "historyPlaceholder": "Your first ring forms tonight.",
   "podPlaceholder": "Your pod will live here.",
@@ -238,5 +237,82 @@
   "errTooManyAttempts": "Let's pause a bit. Try again in an hour.",
   "errAlreadyInPod": "You're already in a pod.",
   "errOffline": "No connection. Check your internet and try again.",
-  "errNotConfigured": "Anchor isn't connected to a server yet."
+  "errNotConfigured": "Anchor isn't connected to a server yet.",
+  "urgeToldYes": "{name} has been told.",
+  "@urgeToldYes": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "urgeQueued": "{name} will be told the moment you're back online. The next three minutes are yours.",
+  "@urgeQueued": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "urgeStay": "Stay with me for three minutes.",
+  "urgeStep1": "Stand up.",
+  "urgeStep2": "Drink a glass of water.",
+  "urgeStep3": "Put the phone in another room, or face down.",
+  "breathIn": "In.",
+  "breathOut": "Out.",
+  "urgeMistake": "That was a mistake",
+  "urgeMistakeSent": "All clear sent.",
+  "urgeReplyLine": "{name}: {text}",
+  "@urgeReplyLine": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "urgeCall": "Call",
+  "urgeText": "Text",
+  "urgeEndTitle": "How are you now?",
+  "urgeEndPassed": "It passed",
+  "urgeEndMore": "I need more time",
+  "urgeEndSlipped": "I slipped",
+  "urgeHelp": "Need more than a partner?",
+  "reachingOut": "{name} is reaching out.",
+  "@reachingOut": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "postedUpdate": "{name} posted an update.",
+  "@postedUpdate": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "replyAction": "Reply",
+  "replySent": "Sent.",
+  "replyHere": "I'm here.",
+  "replyCallMe": "I'm here. Call me?",
+  "replyWalk": "Walk with me?",
+  "replyProud": "Proud of you.",
+  "replyThankYou": "Thank you for telling me.",
+  "replyNewRing": "Tomorrow is a new ring.",
+  "pushRationaleTitle": "Know when {name} reaches out",
+  "@pushRationaleTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pushRationaleBody": "Anchor can notify you quietly. Notifications never say what this app is for.",
+  "pushEnable": "Turn on notifications",
+  "pushNotNow": "Not now"
 }

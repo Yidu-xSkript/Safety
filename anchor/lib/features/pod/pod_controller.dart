@@ -6,33 +6,51 @@ import '../../core/backend/pod_backend.dart';
 import '../../core/backend/supabase_backend.dart';
 import '../../core/kv.dart';
 import '../../core/local_day.dart';
+import '../../core/uuid.dart';
 import '../today/domain/models.dart';
+import '../urge/replies.dart';
 import '../today/solo_controller.dart';
 
 /// Overridden in tests with an in-memory backend.
 final backendProvider = Provider<PodBackend>((_) => supabaseConfigured ? SupabaseBackend() : UnconfiguredBackend());
 
 class PodState {
-  const PodState({this.pod, this.partner, this.pending = 0, this.justPaired = false});
+  const PodState({
+    this.pod,
+    this.partner,
+    this.pendingKeys = const {},
+    this.justPaired = false,
+    this.partnerUrge,
+    this.replies = const [],
+  });
 
   final PodInfo? pod;
 
   /// The partner's data, shaped like our own. Cached so Today opens instantly and offline.
   final SoloData? partner;
 
-  /// Local changes the server has not acknowledged yet.
-  final int pending;
+  /// Keys of local changes the server has not acknowledged yet (the screens ask "is my ping still queued?").
+  final Set<String> pendingKeys;
 
   /// True from the moment two people are paired until the "X is here." moment has been shown.
   final bool justPaired;
 
+  /// The partner is reaching out right now (open, recent, not retracted).
+  final UrgeInfo? partnerUrge;
+
+  /// Prepared replies between us, newest first.
+  final List<ReplyInfo> replies;
+
+  int get pending => pendingKeys.length;
   bool get active => pod?.active ?? false;
 
-  PodState copyWith({PodInfo? pod, SoloData? partner, int? pending, bool? justPaired, bool clearPod = false}) => PodState(
-        pod: clearPod ? null : (pod ?? this.pod),
-        partner: clearPod ? null : (partner ?? this.partner),
-        pending: pending ?? this.pending,
+  PodState copyWith({PodInfo? pod, SoloData? partner, Set<String>? pendingKeys, bool? justPaired}) => PodState(
+        pod: pod ?? this.pod,
+        partner: partner ?? this.partner,
+        pendingKeys: pendingKeys ?? this.pendingKeys,
         justPaired: justPaired ?? this.justPaired,
+        partnerUrge: partnerUrge,
+        replies: replies,
       );
 }
 
@@ -83,6 +101,8 @@ class PodController extends AsyncNotifier<PodState> {
   Timer? _debounce;
   bool _flushing = false;
 
+  Set<String> get _keys => {for (final o in _outbox) o.key};
+
   PodBackend get _backend => ref.read(backendProvider);
   DateTime _now() => ref.read(clockProvider)();
 
@@ -98,7 +118,7 @@ class PodController extends AsyncNotifier<PodState> {
       _debounce?.cancel();
     });
     if (c.pod != null) Future(refresh); // after this build has published its state
-    return PodState(pod: c.pod, partner: c.partner, pending: _outbox.length);
+    return PodState(pod: c.pod, partner: c.partner, pendingKeys: _keys);
   }
 
   Future<void> _set(PodState s) async {
@@ -109,7 +129,7 @@ class PodController extends AsyncNotifier<PodState> {
   Future<void> _persistOutbox() async {
     await _store.saveOutbox(_outbox);
     final cur = state.value;
-    if (cur != null && cur.pending != _outbox.length) state = AsyncData(cur.copyWith(pending: _outbox.length));
+    if (cur != null && cur.pending != _outbox.length) state = AsyncData(cur.copyWith(pendingKeys: _keys));
   }
 
   /// Pulls pod + partner from the server. Offline or refused: keeps what we have.
@@ -123,8 +143,16 @@ class PodController extends AsyncNotifier<PodState> {
         return;
       }
       final partner = info.active ? await _backend.fetchPartner(info, localDate(_now())) : cur.partner;
+      final activity = info.active ? await _backend.fetchActivity(info, _now()) : null;
       final becameActive = info.active && !cur.active;
-      await _set(PodState(pod: info, partner: partner, pending: _outbox.length, justPaired: cur.justPaired || becameActive));
+      await _set(PodState(
+        pod: info,
+        partner: partner,
+        pendingKeys: _keys,
+        justPaired: cur.justPaired || becameActive,
+        partnerUrge: activity?.partnerUrge,
+        replies: activity?.replies ?? const [],
+      ));
       _watch(info.podId);
       if (info.active) {
         await _backfillOnce(info.podId);
@@ -141,7 +169,7 @@ class PodController extends AsyncNotifier<PodState> {
     await _backend.ensureSignedIn();
     await _backend.setProfile(name, _now().timeZoneOffset.inMinutes);
     final pod = await _backend.createPod();
-    await _set(PodState(pod: pod, pending: _outbox.length));
+    await _set(PodState(pod: pod, pendingKeys: _keys));
     _watch(pod.podId);
   }
 
@@ -149,7 +177,7 @@ class PodController extends AsyncNotifier<PodState> {
   Future<void> newCode() async {
     await _backend.leavePod();
     final pod = await _backend.createPod();
-    await _set(PodState(pod: pod, pending: _outbox.length));
+    await _set(PodState(pod: pod, pendingKeys: _keys));
     _watch(pod.podId);
   }
 
@@ -160,7 +188,7 @@ class PodController extends AsyncNotifier<PodState> {
     await _backend.joinPod(code);
     final info = (await _backend.myPod())!;
     final partner = await _backend.fetchPartner(info, localDate(_now()));
-    await _set(PodState(pod: info, partner: partner, pending: _outbox.length, justPaired: true));
+    await _set(PodState(pod: info, partner: partner, pendingKeys: _keys, justPaired: true));
     _watch(info.podId);
     await _backfillOnce(info.podId);
     unawaited(flush());
@@ -197,13 +225,59 @@ class PodController extends AsyncNotifier<PodState> {
   }
 
   /// Queue a change made on this phone. A no-op until the pod is active (solo data is just local).
-  void record(SyncOp Function(String podId) make) {
+  ///
+  /// [urgent] ops (urges, replies) go ahead of ordinary ones so a crisis never waits behind a habit tick,
+  /// but stay in order among themselves (an urge is created before it is retracted).
+  void record(SyncOp Function(String podId) make, {bool urgent = false}) {
     final pod = state.value?.pod;
     if (pod == null || !pod.active) return;
     final op = make(pod.podId);
     _outbox.removeWhere((o) => o.key == op.key); // a newer answer for the same thing replaces the pending one
-    _outbox.add(op);
+    if (urgent) {
+      var i = 0;
+      while (i < _outbox.length && _isUrgent(_outbox[i])) {
+        i++;
+      }
+      _outbox.insert(i, op);
+    } else {
+      _outbox.add(op);
+    }
     unawaited(_persistOutbox().then((_) => flush()));
+  }
+
+  static bool _isUrgent(SyncOp o) => o is UrgeOp || o is UrgeUpdateOp || o is ReplyOp;
+
+  // ---- the hard moment ----------------------------------------------------------------------
+
+  /// Called the instant Urge is pressed. Returns the id the screen keeps. The ping is queued (and sent at
+  /// once when online); with no active pod nothing is queued and the grounding screen still works.
+  String beginUrge() {
+    final id = newUuid();
+    record((pod) => UrgeOp(podId: pod, id: id, at: _now()), urgent: true);
+    return id;
+  }
+
+  /// "That was a mistake": the partner is told it is okay.
+  void retractUrge(String id) => record((pod) => UrgeUpdateOp(id: id, retract: true), urgent: true);
+
+  /// How it ended: passed / slipped / need_more.
+  void finishUrge(String id, String outcome) => record((pod) => UrgeUpdateOp(id: id, outcome: outcome));
+
+  /// One tap, prepared words only. [urgeId] ties it to an urge (shown on their grounding screen).
+  void reply(ReplyTemplate t, {String? urgeId}) {
+    final partner = state.value?.pod?.partnerId;
+    if (partner == null) return;
+    record(
+      (pod) => ReplyOp(
+        podId: pod,
+        id: newUuid(),
+        toUser: partner,
+        kind: urgeId != null ? 'urge_reply' : 'slip_reply',
+        template: t.key,
+        urgeId: urgeId,
+      ),
+      urgent: true,
+    );
   }
 
   /// Sends pending ops in order. Stops at the first one the server could not be reached for; drops ops
@@ -214,6 +288,11 @@ class PodController extends AsyncNotifier<PodState> {
     try {
       while (_outbox.isNotEmpty) {
         final op = _outbox.first;
+        if (op is UrgeOp && _now().difference(op.at) > kUrgeFreshness) {
+          _outbox.removeWhere((o) => identical(o, op)); // stale: arriving hours late it would read as a fresh alarm
+          await _persistOutbox();
+          continue;
+        }
         try {
           await _backend.send(op);
         } on PodError catch (e) {

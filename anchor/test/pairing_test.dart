@@ -1,78 +1,17 @@
 // Two phones, one in-memory server. Each phone has its own storage and its own provider container, so this
 // exercises the real controllers end to end: pair, sync both ways, work offline, restart, replay.
 import 'package:anchor/core/backend/pod_backend.dart';
-import 'package:anchor/core/kv.dart';
 import 'package:anchor/core/local_day.dart';
 import 'package:anchor/core/uuid.dart';
-import 'package:anchor/features/pod/pod_controller.dart';
 import 'package:anchor/features/rings/ring_model.dart';
 import 'package:anchor/features/today/solo_controller.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fakes/fake_backend.dart';
-import 'fakes/memory_kv.dart';
+import 'fakes/phone.dart';
 import 'harness.dart' show testNow;
 
 final today = localDate(testNow);
-
-/// One phone: its own storage, its own app state, talking to the shared [server].
-class Phone {
-  Phone(this.server, this.id) : kv = MemoryKV() {
-    backend = FakeBackend(server, id);
-    boot();
-  }
-
-  final FakeServer server;
-  final String id;
-  final MemoryKV kv;
-  late final FakeBackend backend;
-  late ProviderContainer c;
-
-  /// (Re)starts the app over the same storage, like closing and reopening it.
-  void boot() {
-    c = ProviderContainer(overrides: [
-      kvProvider.overrideWith((_) async => kv),
-      backendProvider.overrideWithValue(backend),
-      clockProvider.overrideWithValue(() => testNow),
-    ]);
-  }
-
-  Future<void> ready() async {
-    await c.read(soloProvider.future);
-    await c.read(podProvider.future);
-  }
-
-  SoloController get solo => c.read(soloProvider.notifier);
-  PodController get pod => c.read(podProvider.notifier);
-  SoloState get s => c.read(soloProvider).requireValue;
-  PodState get p => c.read(podProvider).requireValue;
-
-  Future<void> onboard(String name, List<String> habits) async {
-    await ready();
-    await solo.completeOnboarding(name, habits);
-  }
-
-  void stop() => c.dispose();
-}
-
-Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
-Future<void> realtime() => Future<void>.delayed(const Duration(milliseconds: 450)); // 300ms debounce + slack
-
-Matcher podError(PodErrorKind k) => throwsA(isA<PodError>().having((e) => e.kind, 'kind', k));
-
-/// Mika creates a pod, Teo joins with its code.
-Future<(Phone, Phone, FakeServer)> pair() async {
-  final server = FakeServer();
-  final mika = Phone(server, 'mika'), teo = Phone(server, 'teo');
-  await mika.onboard('Mika', ['Reading', 'Workout']);
-  await teo.onboard('Teo', ['Prayer']);
-  await mika.pod.createPod();
-  await teo.pod.joinPod(mika.p.pod!.inviteCode!);
-  await mika.pod.refresh();
-  await settle();
-  return (mika, teo, server);
-}
 
 void main() {
   test('creating a pod gives a code; joining it pairs both phones', () async {

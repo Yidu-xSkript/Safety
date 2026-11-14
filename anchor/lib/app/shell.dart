@@ -5,7 +5,7 @@ import '../core/adaptive/adaptive_page.dart';
 import '../features/history/history_page.dart';
 import '../features/pod/pod_page.dart';
 import '../features/today/today_page.dart';
-import '../features/urge/urge_placeholder.dart';
+import '../features/urge/urge_flow.dart';
 import '../l10n/app_localizations.dart';
 
 /// Today · History · Pod. Android: NavigationBar (<600dp) or NavigationRail (>=600dp) + extended Urge FAB.
@@ -20,9 +20,7 @@ class AnchorShell extends StatefulWidget {
 class _AnchorShellState extends State<AnchorShell> {
   int _index = 0;
 
-  void _urge() => Navigator.of(context).push(
-        MaterialPageRoute<void>(fullscreenDialog: true, builder: (_) => const UrgePlaceholder()),
-      );
+  void _urge() => openUrge(context);
 
   List<Widget> get _pages => [
         TodayPage(onUrge: _urge),

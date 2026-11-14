@@ -20,16 +20,45 @@ class FakePod {
   final left = <String>{}; // users who left: they keep no membership, like left_at in the real schema
 }
 
-class FakeServer {
-  FakeServer({DateTime Function()? now}) : now = now ?? DateTime.now;
+class FakeUrge {
+  FakeUrge(this.id, this.user, this.createdAt);
+  final String id;
+  final String user;
+  final DateTime createdAt;
+  bool retracted = false;
+  String? outcome;
+  bool get resolved => outcome != null;
+}
 
-  /// The server's clock. Tests point it at the app's frozen clock so code expiry lines up.
-  final DateTime Function() now;
+class FakeReply {
+  FakeReply(this.id, this.from, this.to, this.template, this.urgeId, this.createdAt);
+  final String id;
+  final String from;
+  final String to;
+  final String template;
+  final String? urgeId;
+  final DateTime createdAt;
+}
+
+class FakeServer {
+  FakeServer({DateTime Function()? now, DateTime? start})
+      : _clock = now,
+        _t = start ?? DateTime.now();
+
+  final DateTime Function()? _clock;
+  DateTime _t;
+
+  /// The server's clock. Tests either hand it the app's clock, or start it somewhere and [advance] it.
+  DateTime now() => _clock?.call() ?? _t;
+  void advance(Duration d) => _t = _t.add(d);
   final _pods = <String, FakePod>{};
   final names = <String, String>{};
   final habits = <String, Map<String, Habit>>{}; // user -> id -> habit
   final checkIns = <String, Map<String, CheckIn>>{}; // user -> dayKey -> pledge
   final ticks = <String, Map<String, Set<String>>>{}; // user -> dayKey -> habit ids
+  final urges = <String, FakeUrge>{};
+  final replies = <FakeReply>[];
+  final devices = <String, ({String user, String platform})>{}; // token -> owner
   final _attempts = <String, int>{};
   final _changes = <String, StreamController<void>>{};
   final _rng = Random(7);
@@ -145,6 +174,32 @@ class FakeBackend implements PodBackend {
   }
 
   @override
+  Future<PodActivity> fetchActivity(PodInfo pod, DateTime now) async {
+    _net();
+    final partner = pod.partnerId!;
+    final fresh = server.now().subtract(kUrgeFreshness);
+    final u = server.urges.values
+        .where((u) => u.user == partner && !u.retracted && !u.resolved && u.createdAt.isAfter(fresh))
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final since = server.now().subtract(const Duration(days: 2));
+    return PodActivity(
+      partnerUrge: u.isEmpty ? null : UrgeInfo(id: u.first.id, createdAt: u.first.createdAt),
+      replies: [
+        for (final r in server.replies.reversed)
+          if ((r.from == userId || r.to == userId) && r.createdAt.isAfter(since))
+            ReplyInfo(id: r.id, fromMe: r.from == userId, template: r.template, urgeId: r.urgeId, createdAt: r.createdAt),
+      ],
+    );
+  }
+
+  @override
+  Future<void> registerDevice(String platform, String token) async {
+    _net();
+    server.devices[token] = (user: userId, platform: platform); // newest registration owns the token
+  }
+
+  @override
   Stream<void> changes(String podId) => server.changes(podId);
 
   @override
@@ -158,6 +213,16 @@ class FakeBackend implements PodBackend {
       case HabitOp():
         (server.habits[userId] ??= {})[op.id] =
             Habit(id: op.id, title: op.title, createdDay: op.createdDay, archivedDay: op.archivedDay);
+      case UrgeOp():
+        server.urges.putIfAbsent(op.id, () => FakeUrge(op.id, userId, server.now()));
+      case UrgeUpdateOp():
+        final u = server.urges[op.id];
+        if (u == null || u.user != userId) throw const PodError(PodErrorKind.other);
+        op.retract ? u.retracted = true : u.outcome = op.outcome;
+      case ReplyOp():
+        if (!server.replies.any((r) => r.id == op.id)) {
+          server.replies.add(FakeReply(op.id, userId, op.toUser, op.template, op.urgeId, server.now()));
+        }
       case TickOp():
         final day = (server.ticks[userId] ??= {}).putIfAbsent(dayKey(op.day), () => {});
         op.on ? day.add(op.habitId) : day.remove(op.habitId);

@@ -192,12 +192,40 @@ do $$ declare n int; begin
 end $$;
 reset role;
 
+-- @test only the owner can retract or resolve an urge
+select t.as_user(2);
+do $$ declare n int; begin
+  update urge_events set retracted_at = now() where user_id = t.u(1);
+  get diagnostics n = row_count;
+  assert n = 0, 'the partner cannot retract Mika''s urge';
+end $$;
+select t.throws($q$ update urge_events set user_id = t.u(2) where user_id = t.u(1) $q$, 'permission denied');
+select t.as_user(1);
+do $$ declare n int; begin
+  update urge_events set resolved_at = now(), outcome = 'passed' where user_id = t.u(1);
+  get diagnostics n = row_count;
+  assert n = 1, 'the owner resolves it';
+  update urge_events set retracted_at = now() where user_id = t.u(1);
+  get diagnostics n = row_count;
+  assert n = 1, 'and can retract it';
+end $$;
+reset role;
+
 -- @test devices are private
 select t.as_user(1);
 insert into devices (user_id, platform, push_token) values (t.u(1), 'android', 'tok-mika');
 select t.as_user(2);
 do $$ begin assert (select count(*) from devices) = 0, 'Teo cannot see Mika''s push token'; end $$;
 reset role;
+
+-- @test register_device hands a token to its newest owner
+select t.as_user(1); select register_device('android', 'tok-shared');
+select t.as_user(2); select register_device('ios', 'tok-shared');
+do $$ begin assert (select count(*) from devices where push_token = 'tok-shared') = 1, 'one row per token'; end $$;
+select t.as_user(1);
+do $$ begin assert (select count(*) from devices where push_token = 'tok-shared') = 0, 'the previous owner no longer has it'; end $$;
+reset role;
+do $$ begin assert (select user_id from devices where push_token = 'tok-shared') = t.u(2), 'the newest registration wins'; end $$;
 
 -- @test leaving ends access both ways and archives the pod
 select t.as_user(1);
@@ -221,5 +249,6 @@ reset role;
 set role anon;
 select t.throws('select create_pod()', 'permission denied');
 select t.throws($q$ select join_pod('AAAAAA') $q$, 'permission denied');
+select t.throws($q$ select register_device('android', 'x') $q$, 'permission denied');
 select t.throws('select count(*) from check_ins', 'permission denied');
 reset role;

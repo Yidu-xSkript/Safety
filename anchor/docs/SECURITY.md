@@ -31,7 +31,7 @@ Visible without unlocking. Never contains the words porn, relapse, slip, urge, s
 | Partner joined | Anchor | `{Name} joined your pod.` |
 | Daily reminder (local) | Anchor | `Your daily check-in is open.` |
 
-Android: `visibility: private` with a public version of the same generic text. iOS: no `mutable-content` payload carries sensitive text; the body is already generic. Display names are user-chosen, so onboarding suggests a nickname.
+Android: visibility is `PUBLIC` because the text is already generic (FCM has no "public version" field, and `PRIVATE` would hide even the harmless wording). iOS: no `mutable-content` payload carries sensitive text. `data` carries ids only. The strings above are enforced by `supabase/functions/notify/logic.test.ts`, which also fails if any of *porn, relapse, slip, urge, struggling, clean, addiction* appears. See `docs/PUSH.md`. Display names are user-chosen, so onboarding suggests a nickname.
 
 ## Threats and mitigations
 

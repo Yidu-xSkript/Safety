@@ -131,6 +131,46 @@ class SupabaseBackend implements PodBackend {
       });
 
   @override
+  Future<PodActivity> fetchActivity(PodInfo pod, DateTime now) => _guard(() async {
+        final me = _c.auth.currentUser!.id;
+        final fresh = now.subtract(kUrgeFreshness).toUtc().toIso8601String();
+        final urges = await _c
+            .from('urge_events')
+            .select('id,created_at')
+            .eq('user_id', pod.partnerId!)
+            .isFilter('retracted_at', null)
+            .isFilter('resolved_at', null)
+            .gte('created_at', fresh)
+            .order('created_at', ascending: false)
+            .limit(1);
+        final since = now.subtract(const Duration(days: 2)).toUtc().toIso8601String();
+        final reps = await _c
+            .from('encouragements')
+            .select('id,from_user,template_key,urge_id,created_at')
+            .gte('created_at', since)
+            .order('created_at', ascending: false); // RLS: only replies I sent or received
+        return PodActivity(
+          partnerUrge: urges.isEmpty
+              ? null
+              : UrgeInfo(id: urges.first['id'] as String, createdAt: DateTime.parse(urges.first['created_at'] as String).toLocal()),
+          replies: [
+            for (final r in reps)
+              ReplyInfo(
+                id: r['id'] as String,
+                fromMe: r['from_user'] == me,
+                template: r['template_key'] as String,
+                urgeId: r['urge_id'] as String?,
+                createdAt: DateTime.parse(r['created_at'] as String).toLocal(),
+              ),
+          ],
+        );
+      });
+
+  @override
+  Future<void> registerDevice(String platform, String token) =>
+      _guard(() => _c.rpc('register_device', params: {'p_platform': platform, 'p_token': token}));
+
+  @override
   Stream<void> changes(String podId) {
     late StreamController<void> ctl;
     RealtimeChannel? ch;
@@ -143,6 +183,8 @@ class SupabaseBackend implements PodBackend {
           ('check_ins', 'pod_id'),
           ('habits', 'pod_id'),
           ('habit_logs', 'pod_id'),
+          ('urge_events', 'pod_id'),
+          ('encouragements', 'pod_id'),
         ]) {
           ch!.onPostgresChanges(
             event: PostgresChangeEvent.all,
@@ -179,6 +221,32 @@ class SupabaseBackend implements PodBackend {
               'p_created': dayKey(op.createdDay),
               'p_archived': op.archivedDay == null ? null : dayKey(op.archivedDay!),
             });
+          case UrgeOp():
+            await _c.from('urge_events').upsert(
+              {'id': op.id, 'pod_id': op.podId, 'user_id': _c.auth.currentUser!.id},
+              onConflict: 'id',
+              ignoreDuplicates: true,
+            );
+          case UrgeUpdateOp():
+            await _c.from('urge_events').update(
+              op.retract
+                  ? {'retracted_at': DateTime.now().toUtc().toIso8601String()}
+                  : {'resolved_at': DateTime.now().toUtc().toIso8601String(), 'outcome': op.outcome},
+            ).eq('id', op.id);
+          case ReplyOp():
+            await _c.from('encouragements').upsert(
+              {
+                'id': op.id,
+                'pod_id': op.podId,
+                'from_user': _c.auth.currentUser!.id,
+                'to_user': op.toUser,
+                'kind': op.kind,
+                'template_key': op.template,
+                'urge_id': op.urgeId,
+              },
+              onConflict: 'id',
+              ignoreDuplicates: true,
+            );
           case TickOp() when op.on:
             await _c.from('habit_logs').upsert(
               {'habit_id': op.habitId, 'user_id': _c.auth.currentUser!.id, 'pod_id': op.podId, 'local_date': dayKey(op.day)},
