@@ -6,14 +6,18 @@ enum PledgeState { held, slipped, unchecked }
 
 /// One day: the pledge plus how many of that day's habits were done.
 class DayRing {
-  const DayRing({required this.pledge, required this.done, required this.total});
+  // ignore: prefer_initializing_formals
+  const DayRing({required this.pledge, required this.done, required this.total, double? sweep}) : _sweep = sweep;
 
   final PledgeState pledge;
   final int done;
   final int total;
+  final double? _sweep; // animation frame override; never stored
 
   /// 0..1. A day with no habits has fill 0 (and still draws a 2dp ring).
-  double get fill => total <= 0 ? 0 : (done / total).clamp(0.0, 1.0);
+  double get fill => _sweep ?? (total <= 0 ? 0 : (done / total).clamp(0.0, 1.0));
+
+  DayRing withFill(double f) => DayRing(pledge: pledge, done: done, total: total, sweep: f);
 }
 
 /// Everything a slab needs. `lastDays` is oldest → newest, at most [kRingDays] completed days.
@@ -25,6 +29,9 @@ class SlabData {
   final int daysHeld;
   final List<DayRing> lastDays;
   final DayRing today;
+
+  /// Same slab with today's sweep at an intermediate animation value.
+  SlabData withTodayFill(double f) => SlabData(initial: initial, daysHeld: daysHeld, lastDays: lastDays, today: today.withFill(f));
 }
 
 const kRingDays = 7;

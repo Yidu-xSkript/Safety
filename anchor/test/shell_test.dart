@@ -1,4 +1,5 @@
 import 'package:anchor/app/shell.dart';
+import 'package:anchor/core/local_day.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,8 @@ void setSize(WidgetTester t, double w, double h) {
 }
 
 void main() {
+  setUp(() => seedSolo(onboardedMika(started: dayOf(2026, 11, 14))));
+
   testWidgets('Android phone: NavigationBar with three tabs and an Urge FAB that opens the Urge screen', (t) async {
     setSize(t, 400, 800);
     await t.pumpWidget(harness(const AnchorShell()));
@@ -70,8 +73,8 @@ void main() {
     final handle = t.ensureSemantics();
     await t.pumpWidget(harness(const AnchorShell()));
     await t.pumpAndSettle();
-    expect(find.bySemanticsLabel(RegExp(r'^Mika: 14 days held\. Today: habits 3 of 4, pledge not checked in\.')), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp(r'^Teo: 22 days held\.')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^Mika: 0 days held\. Today: habits 0 of 2, pledge not checked in\.')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^Teo: 22 days held\. Today: habits')), findsOneWidget);
     handle.dispose();
   });
 }

@@ -133,8 +133,14 @@ abstract class AppLocalizations {
   /// No description provided for @daysHeld.
   ///
   /// In en, this message translates to:
-  /// **'days held'**
-  String get daysHeld;
+  /// **'{count, plural, =1{day held} other{days held}}'**
+  String daysHeld(int count);
+
+  /// No description provided for @daysHeldPhrase.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day held} other{{count} days held}}'**
+  String daysHeldPhrase(int count);
 
   /// No description provided for @podStreak.
   ///
@@ -163,10 +169,10 @@ abstract class AppLocalizations {
   /// No description provided for @slabSemantics.
   ///
   /// In en, this message translates to:
-  /// **'{name}: {days} days held. Today: habits {done} of {total}, pledge {pledge}. Last days: {history}.'**
+  /// **'{name}: {days}. Today: habits {done} of {total}, pledge {pledge}. Last days: {history}.'**
   String slabSemantics(
     String name,
-    int days,
+    String days,
     int done,
     int total,
     String pledge,
@@ -176,10 +182,10 @@ abstract class AppLocalizations {
   /// No description provided for @slabSemanticsNoHistory.
   ///
   /// In en, this message translates to:
-  /// **'{name}: {days} days held. Today: habits {done} of {total}, pledge {pledge}.'**
+  /// **'{name}: {days}. Today: habits {done} of {total}, pledge {pledge}.'**
   String slabSemanticsNoHistory(
     String name,
-    int days,
+    String days,
     int done,
     int total,
     String pledge,
@@ -208,6 +214,246 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your pod will live here.'**
   String get podPlaceholder;
+
+  /// No description provided for @genericError.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong on our side. Nothing was lost.'**
+  String get genericError;
+
+  /// No description provided for @welcomeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Two people. One honest line a day.'**
+  String get welcomeTitle;
+
+  /// No description provided for @welcomeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A quiet pod for you and one person you trust.'**
+  String get welcomeBody;
+
+  /// No description provided for @getStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get getStarted;
+
+  /// No description provided for @notTreatment.
+  ///
+  /// In en, this message translates to:
+  /// **'Anchor supports recovery. It isn\'t treatment or a crisis service.'**
+  String get notTreatment;
+
+  /// No description provided for @continueLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueLabel;
+
+  /// No description provided for @nameTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What should we call you?'**
+  String get nameTitle;
+
+  /// No description provided for @nameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A nickname is fine.'**
+  String get nameHint;
+
+  /// No description provided for @nameHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Your partner will see this. It also appears on notifications.'**
+  String get nameHelper;
+
+  /// No description provided for @habitsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a few daily habits'**
+  String get habitsTitle;
+
+  /// No description provided for @habitsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional. They sit beside your pledge so the day is more than not-doing.'**
+  String get habitsBody;
+
+  /// No description provided for @habitMorningPrayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Morning prayer'**
+  String get habitMorningPrayer;
+
+  /// No description provided for @habitNightPrayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Night prayer'**
+  String get habitNightPrayer;
+
+  /// No description provided for @habitWorkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Workout (30 min)'**
+  String get habitWorkout;
+
+  /// No description provided for @habitReading.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading'**
+  String get habitReading;
+
+  /// No description provided for @habitPhoneAway.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone away by 22:00'**
+  String get habitPhoneAway;
+
+  /// No description provided for @addYourOwn.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your own'**
+  String get addYourOwn;
+
+  /// No description provided for @addHabitHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Habit name'**
+  String get addHabitHint;
+
+  /// No description provided for @add.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get add;
+
+  /// No description provided for @habitsLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'That\'s the most you can add: 8.'**
+  String get habitsLimit;
+
+  /// No description provided for @justThePledge.
+  ///
+  /// In en, this message translates to:
+  /// **'Just the pledge for now'**
+  String get justThePledge;
+
+  /// No description provided for @startToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get startToday;
+
+  /// No description provided for @podTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{you} & {partner}'**
+  String podTitle(String you, String partner);
+
+  /// No description provided for @pledgePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'How was today?'**
+  String get pledgePrompt;
+
+  /// No description provided for @heldTheLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Held the line'**
+  String get heldTheLine;
+
+  /// No description provided for @iSlipped.
+  ///
+  /// In en, this message translates to:
+  /// **'I slipped'**
+  String get iSlipped;
+
+  /// No description provided for @heldAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Held the line · {time}'**
+  String heldAt(String time);
+
+  /// No description provided for @slippedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Slipped · {time}'**
+  String slippedAt(String time);
+
+  /// No description provided for @slipSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved. Tomorrow is a new ring. The tree keeps growing.'**
+  String get slipSaved;
+
+  /// No description provided for @changeAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Change today\'s answer'**
+  String get changeAnswer;
+
+  /// No description provided for @habitsHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Habits'**
+  String get habitsHeading;
+
+  /// No description provided for @habitsProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} of {total}'**
+  String habitsProgress(int done, int total);
+
+  /// No description provided for @slipTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you for telling the truth.'**
+  String get slipTitle;
+
+  /// No description provided for @slipBody.
+  ///
+  /// In en, this message translates to:
+  /// **'That takes more than holding a streak does.'**
+  String get slipBody;
+
+  /// No description provided for @slipNoteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a note (optional)'**
+  String get slipNoteHint;
+
+  /// No description provided for @slipSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get slipSave;
+
+  /// No description provided for @slipNotYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not yet'**
+  String get slipNotYet;
+
+  /// No description provided for @weekHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get weekHeading;
+
+  /// No description provided for @weekPersonState.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} {state}'**
+  String weekPersonState(String name, String state);
+
+  /// No description provided for @weekDayLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{date}: {summary}'**
+  String weekDayLabel(String date, String summary);
 }
 
 class _AppLocalizationsDelegate

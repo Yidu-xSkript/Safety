@@ -2,18 +2,20 @@
 
 Each phase ends in something a real person can use. Do not start phase N+1 with phase N's acceptance unmet. Phase 0–1 need no backend, so the design can be judged on a device early.
 
-## Phase 0 — Foundations (1–2 days)
+## Phase 0 — Foundations (1–2 days) · built
 - `flutter create` (org `com.anchor`, Android + iOS only), dependency set from `ARCHITECTURE.md`, lints on.
 - Theme from `DESIGN.md`: light and dark `ColorScheme`, text theme, Cupertino theme; bundled display font.
 - `rings/`: `ring_model.dart`, `SlabPainter`, `RingGlyph` with golden tests for held / slipped / unchecked, light and dark, 1× and 2× text.
 - Adaptive shell with three empty tabs; Urge FAB / toolbar action wired to a placeholder.
 - **Accept:** goldens pass; shell renders correctly on a Pixel emulator and an iPhone simulator; dark mode and 130% font scale checked.
 
-## Phase 1 — The solo loop, local only (2–4 days)
+## Phase 1 — The solo loop, local only (2–4 days) · built
 - Onboarding name + habits; Today with pledge card, habits, week strip, all against a local fake repository (demo partner data is synthetic and clearly labelled in code).
 - Domain: `local_day`, `streak`, pod streak, ring widths with unit tests.
 - Slip sheet, calm copy from `SOUL.md`; ring animation honours Remove animations.
 - **Accept:** a full day can be logged offline; streak tests cover held/slipped/unchecked/pending/rollover cases; slab semantics read correctly in TalkBack and VoiceOver.
+- **Built:** onboarding (welcome, name, habits), Today (pod header, pledge card, habits, week strip), slip sheet, local storage, 04:00 rollover on resume, ring sweep that honours Remove animations. End-to-end tests on both platforms. Not yet checked on a real TalkBack/VoiceOver or an emulator (none available on the dev machine).
+- **Carried into Phase 2 (copy is deliberately partner-free while there is no partner):** restore "Held the line. Teo can see it.", the slip sheet's "Tell Teo" and "Teo will see this and can answer you" (`SOUL.md` copy bank); replace `rings/demo_data.dart` (synthetic Teo) with the real partner; the unread-day edge case when a partner joins mid-streak.
 
 ## Phase 2 — Pairing (3–5 days)
 - Supabase project, `SCHEMA.md` applied, RLS test script green.

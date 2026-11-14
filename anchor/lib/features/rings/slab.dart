@@ -29,10 +29,10 @@ class Slab extends StatelessWidget {
     final today = data.today;
     final pledge = ringWordText(l, today.pledge);
     final label = data.lastDays.isEmpty
-        ? l.slabSemanticsNoHistory(name, data.daysHeld, today.done, today.total, pledge)
+        ? l.slabSemanticsNoHistory(name, l.daysHeldPhrase(data.daysHeld), today.done, today.total, pledge)
         : l.slabSemantics(
             name,
-            data.daysHeld,
+            l.daysHeldPhrase(data.daysHeld),
             today.done,
             today.total,
             pledge,
@@ -50,9 +50,15 @@ class Slab extends StatelessWidget {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              CustomPaint(
-                size: Size.square(diameter),
-                painter: SlabPainter(data: data, person: person, palette: palette),
+              // Today's sweep grows to its new value: 400ms, emphasized decelerate. Instant under Remove animations.
+              TweenAnimationBuilder<double>(
+                tween: Tween(end: today.fill),
+                duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 400),
+                curve: Easing.emphasizedDecelerate,
+                builder: (context, fill, _) => CustomPaint(
+                  size: Size.square(diameter),
+                  painter: SlabPainter(data: data.withTodayFill(fill), person: person, palette: palette),
+                ),
               ),
               Text(
                 data.initial,

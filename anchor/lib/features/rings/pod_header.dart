@@ -45,7 +45,7 @@ class PodHeader extends StatelessWidget {
               children: [
                 Text(name, style: theme.textTheme.titleLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
                 FittedBox(fit: BoxFit.scaleDown, child: Text('$days', style: theme.textTheme.displayLarge)),
-                Text(l.daysHeld, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                Text(l.daysHeld(days), style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               ],
             ),
           );
