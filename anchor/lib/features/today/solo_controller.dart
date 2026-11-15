@@ -45,6 +45,9 @@ class SoloController extends AsyncNotifier<SoloState> {
     await _store.save(data);
   }
 
+  /// Restoring from the server on a new phone: this is now what we have.
+  Future<void> replaceAll(SoloData data) => _set(data);
+
   /// Call when the app resumes: the day may have rolled over while it was in the background.
   void refreshDay() {
     final cur = state.value;

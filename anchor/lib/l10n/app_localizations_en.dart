@@ -93,9 +93,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get historyPlaceholder => 'Your first ring forms tonight.';
 
   @override
-  String get podPlaceholder => 'Your pod will live here.';
-
-  @override
   String get genericError =>
       'Something went wrong on our side. Nothing was lost.';
 
@@ -423,4 +420,205 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pushNotNow => 'Not now';
+
+  @override
+  String get prevMonth => 'Previous month';
+
+  @override
+  String get nextMonth => 'Next month';
+
+  @override
+  String get legendHeld => 'Held';
+
+  @override
+  String get legendSlipped => 'Slipped';
+
+  @override
+  String get legendNone => 'Not checked in';
+
+  @override
+  String legendSides(String left, String right) {
+    return '$left on the left, $right on the right';
+  }
+
+  @override
+  String get bestStreakLabel => 'Best streak';
+
+  @override
+  String get heldThisMonthLabel => 'Held this month';
+
+  @override
+  String countDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String dayHabits(int done, int total) {
+    return 'Habits $done of $total';
+  }
+
+  @override
+  String dayPerson(String name, String state) {
+    return '$name: $state';
+  }
+
+  @override
+  String get settingsPartner => 'Partner';
+
+  @override
+  String get settingsReminder => 'Daily reminder';
+
+  @override
+  String get reminderOff => 'Off';
+
+  @override
+  String get reminderDenied =>
+      'Notifications are off for Anchor in your phone\'s settings.';
+
+  @override
+  String get settingsPartnerNumber => 'Partner\'s number';
+
+  @override
+  String get partnerNumberNone => 'Stays on this phone';
+
+  @override
+  String partnerNumberHelp(String name) {
+    return 'Saved only on this phone. It lets you call or text $name from here.';
+  }
+
+  @override
+  String get partnerNumberHint => 'Phone number';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get remove => 'Remove';
+
+  @override
+  String get settingsNotifications => 'Notifications';
+
+  @override
+  String get on => 'On';
+
+  @override
+  String get off => 'Off';
+
+  @override
+  String get turnOn => 'Turn on';
+
+  @override
+  String get settingsSecure => 'Secure your pod';
+
+  @override
+  String get secureSubtitle => 'Without this, a lost phone means a new pod.';
+
+  @override
+  String secured(String email) {
+    return 'Secured · $email';
+  }
+
+  @override
+  String get settingsLeave => 'Leave pod';
+
+  @override
+  String get leaveTitle => 'Leave this pod?';
+
+  @override
+  String leaveBody(String name) {
+    return 'You and $name will no longer see each other\'s check-ins. $name will be told your pod has changed. This can\'t be undone.';
+  }
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get endedTitle => 'Your pod has ended.';
+
+  @override
+  String get endedBody =>
+      'You can still read your history together. Start a new pod when you are ready.';
+
+  @override
+  String get endedStart => 'Start a new pod';
+
+  @override
+  String get secureTitle => 'Secure your pod';
+
+  @override
+  String get secureBody =>
+      'Add your email so a lost or replaced phone doesn\'t mean a new pod. We only use it to sign you back in.';
+
+  @override
+  String get emailHint => 'Email';
+
+  @override
+  String get sendCode => 'Send code';
+
+  @override
+  String get codeTitle => 'Enter the code';
+
+  @override
+  String codeBody(String email) {
+    return 'We sent a 6-digit code to $email.';
+  }
+
+  @override
+  String get codeHint => '6-digit code';
+
+  @override
+  String get verify => 'Verify';
+
+  @override
+  String get secureDone => 'Your pod is secured.';
+
+  @override
+  String get done => 'Done';
+
+  @override
+  String get errInvalidOtp => 'That code didn\'t work. Check it and try again.';
+
+  @override
+  String get errEmailInUse => 'That email is already used by another account.';
+
+  @override
+  String get secureCardBody => 'Without this, a lost phone means a new pod.';
+
+  @override
+  String get secureCardAction => 'Secure it';
+
+  @override
+  String get restoreAction => 'I already have an account';
+
+  @override
+  String get restoreTitle => 'Welcome back';
+
+  @override
+  String get restoreBody => 'Enter the email you secured your pod with.';
+
+  @override
+  String get restoreNone => 'We couldn\'t find a pod for that account.';
+
+  @override
+  String waitingOn(String name) {
+    return 'Waiting on $name';
+  }
+
+  @override
+  String get inSync => 'In sync';
+
+  @override
+  String get sayHello => 'Say hello';
+
+  @override
+  String get replyHello => 'Just saying hello.';
+
+  @override
+  String get reminderBody => 'Your daily check-in is open.';
 }

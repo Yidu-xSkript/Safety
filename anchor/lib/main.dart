@@ -18,6 +18,7 @@ import 'features/onboarding/onboarding.dart';
 import 'features/pod/pairing_screens.dart';
 import 'features/pod/pod_controller.dart';
 import 'features/pod/push_controller.dart';
+import 'features/pod/settings_controller.dart';
 import 'features/today/solo_controller.dart';
 import 'features/urge/urge_flow.dart';
 import 'l10n/app_localizations.dart';
@@ -56,6 +57,7 @@ class _AnchorAppState extends ConsumerState<AnchorApp> {
       ref.read(podProvider.notifier).refresh(); // partner may have changed things while we slept
       ref.read(podProvider.notifier).flush();
       ref.read(pushProvider.notifier).sync(); // make sure the server has this phone's token
+      ref.invalidate(reminderSyncProvider); // re-anchor the daily reminder (also after a daylight-saving change)
     });
     _outside();
   }
@@ -95,6 +97,7 @@ class _AnchorAppState extends ConsumerState<AnchorApp> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(reminderSyncProvider); // schedules the daily reminder whenever the setting or today's check-in changes
     return MaterialApp(
       navigatorKey: navigatorKey,
       onGenerateTitle: (c) => AppLocalizations.of(c).appName,
@@ -130,10 +133,9 @@ class _Root extends ConsumerWidget {
     final p = pod.requireValue;
     return switch (p.pod?.status) {
       PodStatus.active when p.justPaired => const PairedMoment(),
-      PodStatus.active => const AnchorShell(),
+      PodStatus.active || PodStatus.archived => const AnchorShell(), // an ended pod stays readable (Today explains and offers a fresh start)
       PodStatus.open => const WaitingScreen(),
-      // ponytail: an archived pod (partner left) sends you back to choose; the "your pod has ended" view comes with leave-pod in Phase 4.
-      PodStatus.archived || null => const PodChoiceScreen(),
+      null => const PodChoiceScreen(),
     };
   }
 }

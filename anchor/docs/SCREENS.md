@@ -61,11 +61,17 @@ End screen: "How are you now?" with three answers; "I slipped" continues to the 
 ### 10. Reply sheet (partner side) — built in Phase 3
 Opened from the urge push. Shows "Teo is reaching out." and 4 large prepared-reply buttons (here, call me, walk, proud) plus **Call** / **Text** if a number is saved. One tap sends and closes; confirmation is a snackbar/toast "Sent."
 
-### 11. History
-Top: week strip (you / Teo). Below: month grid; each day cell = two ring glyphs (you left, Teo right), 40dp tap target. Tap a day → sheet with that day's pledge, note (if any), habits done, replies. Month switcher in the app bar. Legend uses words, not just glyphs. Insights are limited to two numbers per person: best streak, days held this month.
+### 11. History (built in Phase 4)
+A month at a time, with previous/next (limited to where your history began, and to this month). Each day is one tappable cell (a 64dp target) with a day number and two ring glyphs: yours on the left, your partner's on the right; nothing for days before someone started or after today. Below: a legend in words (Held / Slipped / Not checked in, and who is on which side), and a card with two equal columns, one per person: **Best streak** and **Held this month**. Tap a day for a sheet: the date in full, each person's pledge in words, their note, and habits done by name. Silence is "Not checked in", never a slip. Before there is anything to show: "Your first ring forms tonight." The week strip lives on Today.
 
-### 12. Pod (tab)
-Large title "Pod". Rows (grouped list, platform style): Partner (name, "paired since…"), Daily reminder time, App lock, Partner's number (device-only), Help and resources, Secure your pod, Leave pod, Delete account. Leave and Delete use platform confirm dialogs with plain consequence text.
+### 12. Pod (built in Phase 4)
+Large title "Pod", then grouped lists (iOS inset grouped / Android tonal card): **Partner** (name); **Daily reminder** (switch; asks the system once; defaults to 9:30 PM; tap the time to change it; the reminder skips today once you have checked in; if the system said no it says so plainly); **Partner's number** (saved only on this phone; lets Call/Text appear); **Notifications** (on/off, "Turn on" re-asks); **Secure your pod** (email, then a 6-digit code; no password); **Leave pod** (destructive, a plain confirmation naming what happens and that it cannot be undone). The crisis-resource row stays behind a flag until the owner supplies a vetted list. App lock and Delete account arrive in Phase 5.
+
+### Ended pod (built in Phase 4)
+When your partner leaves, Today explains ("Your pod has ended. You can still read your history together. Start a new pod when you are ready."), hides everything that writes (pledge, habits, hello), keeps the pod header, week strip and History readable, keeps the Urge screen working (it sends nothing), and offers one button, *Start a new pod*.
+
+### Say hello, the sync chip, and the secure card (Phase 4, Today)
+Above the cards: a chip, "In sync" (you both have a check-in today or yesterday) or "Waiting on {Name}" (only they are missing; nothing when only you are). In the evening (18:00+), while they have not checked in today, and once a day: *Say hello* sends a prepared nudge ("{Name} says hello." on their lock screen; "Just saying hello." on their Today). From day two, at most twice, a card suggests *Secure your pod*; never offered when no server is configured.
 
 ## Notification taps
 

@@ -62,6 +62,10 @@ Run migration `0002_push.sql` too (`register_device`).
 3. Tapping a notification opens the app; for *reaching out* it refreshes first and then opens the reply sheet, but only if the urge is still open (a retracted or old one opens nothing).
 4. **Urge shortcut:** a long-press shortcut on the app icon (Android) / Home Screen quick action (iOS) opens the grounding screen directly. Two presses never send two pings.
 
+## The daily reminder (local, no server)
+
+Pod → Daily reminder schedules a local notification (title `Anchor`, body `Your daily check-in is open.`, channel `reminders`, low importance). It repeats daily, is rescheduled on every app open and on every change, and skips today once you have checked in. It uses inexact timing so no exact-alarm permission is needed (it may arrive a few minutes late). Android 13+ asks for notification permission when you turn it on; iOS asks at the same moment. Never run on a device yet.
+
 ## Safety rules baked in
 
 - A ping that sat offline for more than 30 minutes is **dropped**, not delivered: arriving hours late it would read as a fresh alarm.

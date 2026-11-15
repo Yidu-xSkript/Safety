@@ -12,7 +12,8 @@ Anchor stores the most sensitive thing a person can tell another person. The des
 | Urge events | `urge_events` | you, your partner |
 | Prepared replies | `encouragements` | sender, recipient |
 | Push token | `devices` | you; Edge Function (service role) |
-| Partner's phone number | **never leaves the device** (local only, `shared_preferences`) | you |
+| Partner's phone number | **never leaves the device** (local only, key-value storage; set in Pod → Partner's number) | you |
+| Secured email (optional) | Supabase Auth only, used to sign you back in with a code; no password is stored | you |
 
 Never collected: contacts, location, advertising ID, browsing history, analytics SDKs, crash reporters that attach user data. If crash reporting is added later it must scrub all fields above.
 
@@ -51,7 +52,7 @@ Android: visibility is `PUBLIC` because the text is already generic (FCM has no 
 ## Account and data rights
 
 - **Delete account** is one screen in Pod → Settings, in-app (App Store requirement), backed by the `delete-account` Edge Function. It cascades the user's rows and archives the pod.
-- **Leave pod** ends both people's access to each other's data; each keeps read access to their own.
+- **Leave pod** ends both people's access to each other's data as far as *new* data goes: the leaver can no longer read the partner at all; the one who stays keeps read-only access to history the pod already holds (and can start a new pod). Each keeps their own. In-app confirmation names the consequence and that it cannot be undone.
 - **Export** (Phase 5): JSON of your own data.
 - Retention: while the account exists. No backups are exposed to clients.
 

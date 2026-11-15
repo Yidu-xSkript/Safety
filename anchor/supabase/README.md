@@ -30,8 +30,9 @@ node --test "supabase/functions/notify/*.test.ts"
 1. Create a project at [supabase.com](https://supabase.com) (free tier is enough).
 2. **Authentication → Providers → Anonymous Sign-Ins: enable.** Anchor starts every user with an anonymous session. Consider enabling CAPTCHA protection there before launch to limit anonymous-account abuse.
 3. **SQL Editor:** paste and run `migrations/0001_init.sql`. (Or with the CLI: `supabase link` then `supabase db push`.)
-4. **Project Settings → API:** copy the project URL and the publishable (anon) key. Never put the `service_role` / secret key in the app.
-5. Run the app against it:
+4. **Email codes (Phase 4: "Secure your pod" and sign-back-in):** Authentication → Providers → Email: enabled. Authentication → Email Templates: the **Confirm email change** and **Magic Link** templates must show the 6-digit code, i.e. include `{{ .Token }}` (the default templates send a link, which the app does not use). Optionally enable CAPTCHA/rate limits there. Not yet tried against a live project.
+5. **Project Settings → API:** copy the project URL and the publishable (anon) key. Never put the `service_role` / secret key in the app.
+6. Run the app against it:
 
 ```bash
 flutter run --dart-define=SUPABASE_URL=https://<ref>.supabase.co --dart-define=SUPABASE_ANON_KEY=<publishable key>

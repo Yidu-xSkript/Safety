@@ -21,6 +21,8 @@ import 'pod_controller.dart';
 String podErrorText(AppLocalizations l, Object e) => switch (e is PodError ? e.kind : PodErrorKind.other) {
       PodErrorKind.invalidCode => l.errInvalidCode,
       PodErrorKind.tooManyAttempts => l.errTooManyAttempts,
+      PodErrorKind.invalidOtp => l.errInvalidOtp,
+      PodErrorKind.emailInUse => l.errEmailInUse,
       PodErrorKind.alreadyInPod => l.errAlreadyInPod,
       PodErrorKind.offline => l.errOffline,
       PodErrorKind.notConfigured => l.errNotConfigured,

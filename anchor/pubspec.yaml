@@ -23,6 +23,8 @@ dependencies:
   firebase_messaging: ^17.0.1
   url_launcher: ^6.3.3
   quick_actions: ^1.1.1
+  flutter_local_notifications: ^23.0.2
+  timezone: ^0.11.2
 
 dev_dependencies:
   flutter_test:

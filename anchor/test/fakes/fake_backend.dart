@@ -31,7 +31,8 @@ class FakeUrge {
 }
 
 class FakeReply {
-  FakeReply(this.id, this.from, this.to, this.template, this.urgeId, this.createdAt);
+  FakeReply(this.id, this.from, this.to, this.template, this.urgeId, this.createdAt, [this.kind = 'urge_reply']);
+  final String kind;
   final String id;
   final String from;
   final String to;
@@ -56,6 +57,10 @@ class FakeServer {
   final habits = <String, Map<String, Habit>>{}; // user -> id -> habit
   final checkIns = <String, Map<String, CheckIn>>{}; // user -> dayKey -> pledge
   final ticks = <String, Map<String, Set<String>>>{}; // user -> dayKey -> habit ids
+  final emails = <String, String>{}; // user -> secured email
+  final accounts = <String, String>{}; // email -> user
+  final pendingLinks = <String, String>{}; // user -> email awaiting a code
+  static const code = '123456'; // every emailed code in tests
   final urges = <String, FakeUrge>{};
   final replies = <FakeReply>[];
   final devices = <String, ({String user, String platform})>{}; // token -> owner
@@ -78,7 +83,9 @@ class FakeBackend implements PodBackend {
   FakeBackend(this.server, this.userId);
 
   final FakeServer server;
-  final String userId;
+
+  /// Whose phone this is. Signing in to an existing account re-points it, like a reinstall followed by a restore.
+  String userId;
 
   /// Flip to simulate no connectivity: every call throws [PodErrorKind.offline].
   bool online = true;
@@ -156,21 +163,66 @@ class FakeBackend implements PodBackend {
     server.notify(p.id);
   }
 
-  @override
-  Future<SoloData> fetchPartner(PodInfo pod, DateTime today) async {
-    _net();
-    final id = pod.partnerId!;
+  SoloData _person(String id, String name) {
     final hs = server.habits[id]?.values.toList() ?? [];
     final cis = server.checkIns[id] ?? {};
     final days = [...cis.keys.map(parseDayKey), ...hs.map((h) => h.createdDay)]..sort();
     return SoloData(
-      name: pod.partnerName ?? '',
+      name: name,
       onboarded: true,
       startDay: days.isEmpty ? null : days.first,
       habits: hs,
       checkIns: Map.of(cis),
       logs: {for (final e in (server.ticks[id] ?? {}).entries) e.key: Set.of(e.value)},
     );
+  }
+
+  @override
+  Future<SoloData> fetchPartner(PodInfo pod, DateTime today) async {
+    _net();
+    return _person(pod.partnerId!, pod.partnerName ?? '');
+  }
+
+  @override
+  Future<SoloData> fetchMine(DateTime today) async {
+    _net();
+    return _person(userId, server.names[userId] ?? '');
+  }
+
+  @override
+  Future<String?> accountEmail() async {
+    _net();
+    return server.emails[userId];
+  }
+
+  @override
+  Future<void> requestEmailLink(String email) async {
+    _net();
+    final owner = server.accounts[email];
+    if (owner != null && owner != userId) throw const PodError(PodErrorKind.emailInUse);
+    server.pendingLinks[userId] = email;
+  }
+
+  @override
+  Future<void> confirmEmailLink(String email, String code) async {
+    _net();
+    if (code != FakeServer.code || server.pendingLinks[userId] != email) throw const PodError(PodErrorKind.invalidOtp);
+    server.accounts[email] = userId;
+    server.emails[userId] = email;
+  }
+
+  @override
+  Future<void> requestSignIn(String email) async {
+    _net();
+    if (!server.accounts.containsKey(email)) throw const PodError(PodErrorKind.other); // sign-ups are off for sign-in
+  }
+
+  @override
+  Future<void> confirmSignIn(String email, String code) async {
+    _net();
+    final owner = server.accounts[email];
+    if (code != FakeServer.code || owner == null) throw const PodError(PodErrorKind.invalidOtp);
+    userId = owner;
   }
 
   @override
@@ -220,8 +272,12 @@ class FakeBackend implements PodBackend {
         if (u == null || u.user != userId) throw const PodError(PodErrorKind.other);
         op.retract ? u.retracted = true : u.outcome = op.outcome;
       case ReplyOp():
+        if (op.kind == 'nudge' &&
+            server.replies.any((r) => r.from == userId && r.kind == 'nudge' && r.createdAt.year == server.now().year && r.createdAt.month == server.now().month && r.createdAt.day == server.now().day)) {
+          throw const PodError(PodErrorKind.other); // one_nudge_per_day
+        }
         if (!server.replies.any((r) => r.id == op.id)) {
-          server.replies.add(FakeReply(op.id, userId, op.toUser, op.template, op.urgeId, server.now()));
+          server.replies.add(FakeReply(op.id, userId, op.toUser, op.template, op.urgeId, server.now(), op.kind));
         }
       case TickOp():
         final day = (server.ticks[userId] ??= {}).putIfAbsent(dayKey(op.day), () => {});

@@ -44,6 +44,9 @@ class PodState {
   int get pending => pendingKeys.length;
   bool get active => pod?.active ?? false;
 
+  /// The partner left. Everything stays readable; nothing can be written.
+  bool get ended => pod?.status == PodStatus.archived;
+
   PodState copyWith({PodInfo? pod, SoloData? partner, Set<String>? pendingKeys, bool? justPaired}) => PodState(
         pod: pod ?? this.pod,
         partner: partner ?? this.partner,
@@ -137,12 +140,18 @@ class PodController extends AsyncNotifier<PodState> {
     final cur = state.value;
     if (cur == null || cur.pod == null) return;
     try {
-      final info = await _backend.myPod();
+      var info = await _backend.myPod();
       if (info == null) {
         await _set(const PodState());
         return;
       }
-      final partner = info.active ? await _backend.fetchPartner(info, localDate(_now())) : cur.partner;
+      if (info.status == PodStatus.archived && cur.pod != null && info.partnerId == null) {
+        // The partner left: the server no longer names them, but we keep who they were (and can still read their history).
+        info = PodInfo(podId: info.podId, status: info.status, partnerId: cur.pod!.partnerId, partnerName: cur.pod!.partnerName);
+      }
+      final partner = (info.active || info.status == PodStatus.archived) && info.partnerId != null
+          ? await _backend.fetchPartner(info, localDate(_now()))
+          : cur.partner;
       final activity = info.active ? await _backend.fetchActivity(info, _now()) : null;
       final becameActive = info.active && !cur.active;
       await _set(PodState(
@@ -192,6 +201,44 @@ class PodController extends AsyncNotifier<PodState> {
     _watch(info.podId);
     await _backfillOnce(info.podId);
     unawaited(flush());
+  }
+
+  /// Leaving ends both people's access to each other's data (the server enforces it). Also how the person who
+  /// stayed starts over after the partner left. Your own history stays on this phone.
+  Future<void> leavePod() async {
+    await _backend.leavePod();
+    _outbox.clear();
+    _backfilled = null;
+    _sub?.cancel();
+    _subPod = null;
+    await _persistOutbox();
+    await _set(const PodState());
+  }
+
+  /// After signing back in on a new phone: rebuild this phone's world from the server. False when there is no pod.
+  Future<bool> restoreFromServer() async {
+    final info = await _backend.myPod();
+    if (info == null) return false;
+    final today = localDate(_now());
+    await ref.read(soloProvider.notifier).replaceAll(await _backend.fetchMine(today));
+    final partner = info.active ? await _backend.fetchPartner(info, today) : null;
+    _backfilled = info.podId; // the server already has our data; do not upload it again
+    _outbox.clear();
+    await _persistOutbox();
+    await _set(PodState(pod: info, partner: partner));
+    _watch(info.podId);
+    await refresh(); // pick up their urge and replies too
+    return true;
+  }
+
+  /// "Say hello": the one nudge a day. The server refuses a second; the screen never offers it.
+  void sayHello() {
+    final partner = state.value?.pod?.partnerId;
+    if (partner == null) return;
+    record(
+      (pod) => ReplyOp(podId: pod, id: newUuid(), toUser: partner, kind: 'nudge', template: ReplyTemplate.hello.key),
+      urgent: true,
+    );
   }
 
   Future<void> acknowledgePaired() async {

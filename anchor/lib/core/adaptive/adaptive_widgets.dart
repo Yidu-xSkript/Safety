@@ -52,6 +52,7 @@ class AdaptiveTextField extends StatelessWidget {
     this.inputFormatters,
     this.style,
     this.textAlign = TextAlign.start,
+    this.keyboardType,
   });
 
   final TextEditingController controller;
@@ -66,6 +67,7 @@ class AdaptiveTextField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final TextStyle? style;
   final TextAlign textAlign;
+  final TextInputType? keyboardType;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +84,7 @@ class AdaptiveTextField extends StatelessWidget {
         textCapitalization: capitalization,
         padding: const EdgeInsets.all(14),
         inputFormatters: inputFormatters,
+        keyboardType: keyboardType,
         textAlign: textAlign,
         style: style ?? TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 17),
       );
@@ -96,6 +99,7 @@ class AdaptiveTextField extends StatelessWidget {
       textInputAction: textInputAction,
       textCapitalization: capitalization,
       inputFormatters: inputFormatters,
+      keyboardType: keyboardType,
       textAlign: textAlign,
       style: style,
       decoration: InputDecoration(hintText: hint, counterText: ''),

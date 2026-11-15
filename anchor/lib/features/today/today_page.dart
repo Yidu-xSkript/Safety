@@ -6,8 +6,10 @@ import '../../l10n/app_localizations.dart';
 import '../rings/pod_header.dart';
 import 'solo_controller.dart';
 import 'widgets/habits_card.dart';
+import '../pod/pod_controller.dart';
 import 'widgets/partner_signals.dart';
 import 'widgets/pledge_card.dart';
+import 'widgets/sync_row.dart';
 import 'widgets/week_strip.dart';
 
 /// You and your partner, both real (partner data comes from the pod and is cached for offline).
@@ -21,19 +23,23 @@ class TodayPage extends ConsumerWidget {
     final v = ref.watch(todayViewProvider);
     if (v == null) return const SizedBox.shrink();
     final l = AppLocalizations.of(context);
+    final ended = ref.watch(podProvider.select((s) => s.value?.ended ?? false));
 
     return AdaptivePage(
       title: l.podTitle(v.name, v.partnerName),
       onUrge: onUrge,
       large: false,
       children: [
+        const SyncRow(),
         const PartnerSignals(),
         PodHeader(youName: v.name, partnerName: v.partnerName, you: v.you, partner: v.partner, podStreak: v.podStreak),
         const SizedBox(height: 24),
-        const PledgeCard(),
-        const SizedBox(height: 12),
-        const HabitsCard(),
-        const SizedBox(height: 12),
+        if (!ended) ...[
+          const PledgeCard(),
+          const SizedBox(height: 12),
+          const HabitsCard(),
+          const SizedBox(height: 12),
+        ],
         WeekStrip(view: v, partnerName: v.partnerName),
       ],
     );

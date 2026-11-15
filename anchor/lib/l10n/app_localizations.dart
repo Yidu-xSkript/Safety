@@ -203,12 +203,6 @@ abstract class AppLocalizations {
   /// **'Your first ring forms tonight.'**
   String get historyPlaceholder;
 
-  /// No description provided for @podPlaceholder.
-  ///
-  /// In en, this message translates to:
-  /// **'Your pod will live here.'**
-  String get podPlaceholder;
-
   /// No description provided for @genericError.
   ///
   /// In en, this message translates to:
@@ -778,6 +772,354 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not now'**
   String get pushNotNow;
+
+  /// No description provided for @prevMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous month'**
+  String get prevMonth;
+
+  /// No description provided for @nextMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Next month'**
+  String get nextMonth;
+
+  /// No description provided for @legendHeld.
+  ///
+  /// In en, this message translates to:
+  /// **'Held'**
+  String get legendHeld;
+
+  /// No description provided for @legendSlipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Slipped'**
+  String get legendSlipped;
+
+  /// No description provided for @legendNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Not checked in'**
+  String get legendNone;
+
+  /// No description provided for @legendSides.
+  ///
+  /// In en, this message translates to:
+  /// **'{left} on the left, {right} on the right'**
+  String legendSides(String left, String right);
+
+  /// No description provided for @bestStreakLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Best streak'**
+  String get bestStreakLabel;
+
+  /// No description provided for @heldThisMonthLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Held this month'**
+  String get heldThisMonthLabel;
+
+  /// No description provided for @countDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day} other{{count} days}}'**
+  String countDays(int count);
+
+  /// No description provided for @dayHabits.
+  ///
+  /// In en, this message translates to:
+  /// **'Habits {done} of {total}'**
+  String dayHabits(int done, int total);
+
+  /// No description provided for @dayPerson.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}: {state}'**
+  String dayPerson(String name, String state);
+
+  /// No description provided for @settingsPartner.
+  ///
+  /// In en, this message translates to:
+  /// **'Partner'**
+  String get settingsPartner;
+
+  /// No description provided for @settingsReminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily reminder'**
+  String get settingsReminder;
+
+  /// No description provided for @reminderOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get reminderOff;
+
+  /// No description provided for @reminderDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are off for Anchor in your phone\'s settings.'**
+  String get reminderDenied;
+
+  /// No description provided for @settingsPartnerNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Partner\'s number'**
+  String get settingsPartnerNumber;
+
+  /// No description provided for @partnerNumberNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Stays on this phone'**
+  String get partnerNumberNone;
+
+  /// No description provided for @partnerNumberHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved only on this phone. It lets you call or text {name} from here.'**
+  String partnerNumberHelp(String name);
+
+  /// No description provided for @partnerNumberHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone number'**
+  String get partnerNumberHint;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @remove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get remove;
+
+  /// No description provided for @settingsNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get settingsNotifications;
+
+  /// No description provided for @on.
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get on;
+
+  /// No description provided for @off.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get off;
+
+  /// No description provided for @turnOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on'**
+  String get turnOn;
+
+  /// No description provided for @settingsSecure.
+  ///
+  /// In en, this message translates to:
+  /// **'Secure your pod'**
+  String get settingsSecure;
+
+  /// No description provided for @secureSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Without this, a lost phone means a new pod.'**
+  String get secureSubtitle;
+
+  /// No description provided for @secured.
+  ///
+  /// In en, this message translates to:
+  /// **'Secured · {email}'**
+  String secured(String email);
+
+  /// No description provided for @settingsLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave pod'**
+  String get settingsLeave;
+
+  /// No description provided for @leaveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave this pod?'**
+  String get leaveTitle;
+
+  /// No description provided for @leaveBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You and {name} will no longer see each other\'s check-ins. {name} will be told your pod has changed. This can\'t be undone.'**
+  String leaveBody(String name);
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @endedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your pod has ended.'**
+  String get endedTitle;
+
+  /// No description provided for @endedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You can still read your history together. Start a new pod when you are ready.'**
+  String get endedBody;
+
+  /// No description provided for @endedStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start a new pod'**
+  String get endedStart;
+
+  /// No description provided for @secureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Secure your pod'**
+  String get secureTitle;
+
+  /// No description provided for @secureBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your email so a lost or replaced phone doesn\'t mean a new pod. We only use it to sign you back in.'**
+  String get secureBody;
+
+  /// No description provided for @emailHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get emailHint;
+
+  /// No description provided for @sendCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Send code'**
+  String get sendCode;
+
+  /// No description provided for @codeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the code'**
+  String get codeTitle;
+
+  /// No description provided for @codeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'We sent a 6-digit code to {email}.'**
+  String codeBody(String email);
+
+  /// No description provided for @codeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'6-digit code'**
+  String get codeHint;
+
+  /// No description provided for @verify.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get verify;
+
+  /// No description provided for @secureDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Your pod is secured.'**
+  String get secureDone;
+
+  /// No description provided for @done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
+
+  /// No description provided for @errInvalidOtp.
+  ///
+  /// In en, this message translates to:
+  /// **'That code didn\'t work. Check it and try again.'**
+  String get errInvalidOtp;
+
+  /// No description provided for @errEmailInUse.
+  ///
+  /// In en, this message translates to:
+  /// **'That email is already used by another account.'**
+  String get errEmailInUse;
+
+  /// No description provided for @secureCardBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Without this, a lost phone means a new pod.'**
+  String get secureCardBody;
+
+  /// No description provided for @secureCardAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Secure it'**
+  String get secureCardAction;
+
+  /// No description provided for @restoreAction.
+  ///
+  /// In en, this message translates to:
+  /// **'I already have an account'**
+  String get restoreAction;
+
+  /// No description provided for @restoreTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome back'**
+  String get restoreTitle;
+
+  /// No description provided for @restoreBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the email you secured your pod with.'**
+  String get restoreBody;
+
+  /// No description provided for @restoreNone.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t find a pod for that account.'**
+  String get restoreNone;
+
+  /// No description provided for @waitingOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting on {name}'**
+  String waitingOn(String name);
+
+  /// No description provided for @inSync.
+  ///
+  /// In en, this message translates to:
+  /// **'In sync'**
+  String get inSync;
+
+  /// No description provided for @sayHello.
+  ///
+  /// In en, this message translates to:
+  /// **'Say hello'**
+  String get sayHello;
+
+  /// No description provided for @replyHello.
+  ///
+  /// In en, this message translates to:
+  /// **'Just saying hello.'**
+  String get replyHello;
+
+  /// No description provided for @reminderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your daily check-in is open.'**
+  String get reminderBody;
 }
 
 class _AppLocalizationsDelegate

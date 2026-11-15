@@ -113,7 +113,7 @@ void main() {
     await settle();
     expect(server.replies.map((r) => r.template), ['walk', 'thank_you']);
     expect(server.replies.map((r) => r.urgeId), [id, null]);
-    expect({for (final t in ReplyTemplate.values) t.key}, {'here', 'call_me', 'walk', 'proud', 'thank_you', 'new_ring'});
+    expect({for (final t in ReplyTemplate.values) t.key}, {'here', 'call_me', 'walk', 'proud', 'thank_you', 'new_ring', 'hello'});
     await mika.pod.refresh();
     expect(mika.p.replies.length, 2);
   });

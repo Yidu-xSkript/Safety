@@ -24,7 +24,7 @@ Each phase ends in something a real person can use. Do not start phase N+1 with 
 - **Accept:** two physical phones pair with a code; a third account cannot read the pod; killing connectivity and returning replays without duplicates.
 - **Built:** `supabase/migrations/0001_init.sql` and 15 SQL test sections that pass on a real Postgres (PGlite); `PodBackend` interface with a Supabase client and an in-memory fake; anonymous sign-in, profile, create/join (6-char code, rate limited), waiting screen, "Teo is here." moment, partner data on Today over Realtime (refetch on change, cache for offline); outbox for pledges and ticks (coalesced, persisted, replayed in order, refused ops dropped); Phase 1 habit ids migrated to UUIDs; Teo copy restored. Two phones are simulated in tests (own storage, shared in-memory server).
 - **Still to do before this is "accepted":** run the migration on a real Supabase project (steps in `supabase/README.md`) and pair two physical phones; test two simultaneous joins on one code. The Supabase client (`supabase_backend.dart`) has never talked to a live server.
-- **Deferred:** the sync chip ("In sync" / "Waiting on Teo") moved to Phase 4 with the nudge; an archived pod just returns you to the pairing choice until leave-pod lands in Phase 4; `flutter_secure_storage` for the session moves to Phase 5 with app lock.
+- **Deferred from Phase 2, done in Phase 4:** the sync chip, and the ended-pod view that replaced "an archived pod returns you to the pairing choice". Still open: `flutter_secure_storage` for the session moves to Phase 5 with app lock.
 
 ## Phase 3 — The hard moment (3–5 days) · built, not accepted (no push has been sent to a real phone)
 - Firebase project (messaging only), device registration, `notify` Edge Function, generic wording from `SECURITY.md`.
@@ -34,11 +34,13 @@ Each phase ends in something a real person can use. Do not start phase N+1 with 
 - **Not done, needs you:** the Firebase project and APNs key, Xcode capabilities on a Mac, deploying `notify` and creating the webhooks (`docs/PUSH.md`), and the acceptance checklist on two real phones. `firebase_messaging` and the Android Gradle change have never been built (SDK licences) or run.
 - **Accept:** on real hardware, pressing Urge notifies the partner in <5 s on average; lock-screen text matches the table; Urge works fully offline and sends on reconnect; no flashing or fast motion anywhere (checked against Reduce Motion).
 
-## Phase 4 — History and care (2–4 days)
+## Phase 4 — History and care (2–4 days) · built, not run against a live project or a phone
 - History: month heatmap, day detail sheet, two summary numbers.
 - Nudge ("Say hello") with one-per-day rule; daily local reminder.
 - Pod settings: reminder time, partner's number (device-only), leave pod, "Secure your pod" email linking.
 - **Accept:** leave pod ends access both ways, remaining partner sees read-only archive; email link survives reinstall.
+- **Built:** History (month grid with two ring glyphs a day, day sheet with pledge/note/habits for both of you, best streak and days held this month for each, a legend in words, month navigation bounded by where it began); the evening "Say hello" (from 18:00, only while they have not checked in, once a day, server-enforced) and the sync chip ("In sync" / "Waiting on Teo", never "behind"); Pod tab as a grouped native list (daily reminder with permission and a time picker, partner's number kept on this phone only, notifications on/off, secure your pod, leave pod with a plain confirmation); leaving ends it both ways and the one who stayed sees an ended pod (readable, not writable, grounding still works and quietly sends nothing, one button to start again); securing the anonymous account with an emailed code, a gentle card from day two (twice at most, never without a server), and "I already have an account" on Welcome, which rebuilds the pod, history and partner on a new phone without uploading anything. 237+ Dart tests incl. a reinstall simulated with two phones.
+- **Not done, needs you:** the Supabase email templates must include the 6-digit `{{ .Token }}` (see `supabase/README.md`); the reminder and Android changes (desugaring, boot receiver) have never been built or run; real-phone check of "email link survives reinstall" and of leave/ended against a live project.
 
 ## Phase 5 — Hardening and release (3–5 days)
 - App lock, app-switcher cover, `FLAG_SECURE` setting; account deletion Edge Function; `export_my_data`.

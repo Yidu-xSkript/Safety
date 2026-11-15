@@ -116,6 +116,15 @@ Each feature folder splits `data/` (repository, Supabase calls), `domain/` (pure
 7. **Urgent ops:** urge creation/retraction and replies are queued ahead of ordinary ops (in order among themselves); a queued ping older than 30 minutes is dropped, never delivered as a fresh alarm.
 8. **Local daily reminder** (`flutter_local_notifications`) arrives in Phase 4.
 
+## Care features (as built in Phase 4)
+
+- **Pure rules** (`features/history/domain/history.dart`, `features/pod/domain/care.dart`): month grid cells for any weekday start, best streak, days held in a month, the sync state, when "hello" is offered, the next reminder time. All table-tested.
+- **Settings** (`settings_controller.dart`): reminder time, partner's number, secure-card dismissals; key-value storage on this phone only. `reminderSyncProvider` reschedules the daily local notification whenever the setting or today's check-in changes, and on every app resume.
+- **Reminders** (`core/reminders.dart`): `flutter_local_notifications`, a repeating daily notification scheduled in UTC (no timezone plugin; re-anchored at every launch) with inexact timing (no exact-alarm permission). Android needs core-library desugaring and a boot receiver (already in the Gradle/manifest files). Not yet run on a device.
+- **Leaving:** `PodController.leavePod()` calls `leave_pod()` (archives the pod, ends both memberships' read access as the SQL tests prove), clears the queue and the pod cache, keeps your own history. The one who stayed gets an archived pod; `refresh()` keeps the partner's identity (the server stops naming them once they have left) and keeps reading their history, which `is_pod_member` still allows.
+- **Account:** `AccountController` + `EmailCodeScreen`: `updateUser(email)` then `verifyOTP(emailChange)` to secure; `signInWithOtp(shouldCreateUser: false)` then `verifyOTP(email)` to come back. `PodController.restoreFromServer()` rebuilds our own name, habits, pledges and ticks plus the pod and partner, marks the pod as already uploaded so nothing is sent again.
+- **History window:** both people's data is fetched for the last 366 days (`kHistoryDays`).
+
 ## Adaptive UI
 
 One widget tree, three adaptive seams, all in `core/adaptive/`:

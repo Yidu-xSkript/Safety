@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/adaptive/adaptive_widgets.dart';
 import '../../../core/local_day.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../pod/account_controller.dart';
+import '../../pod/email_flow.dart';
 import '../../pod/pod_controller.dart';
+import '../../pod/settings_controller.dart';
 import '../../pod/push_controller.dart';
 import '../../rings/ring_model.dart';
 import '../../urge/replies.dart';
@@ -21,9 +24,24 @@ class PartnerSignals extends ConsumerWidget {
     final solo = ref.watch(soloProvider).value;
     final p = ref.watch(podProvider).value;
     final push = ref.watch(pushProvider).value;
-    if (solo == null || p == null || !p.active) return const SizedBox.shrink();
-
+    final account = ref.watch(accountProvider).value;
+    final settings = ref.watch(settingsProvider).value;
+    if (solo == null || p == null) return const SizedBox.shrink();
     final l = AppLocalizations.of(context);
+
+    // The partner left: everything stays readable, nothing can be written. The one thing to do is start again.
+    if (p.ended) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: _Signal(
+          title: l.endedTitle,
+          body: l.endedBody,
+          action: l.endedStart,
+          onAction: () => ref.read(podProvider.notifier).leavePod(),
+        ),
+      );
+    }
+    if (!p.active) return const SizedBox.shrink();
     final name = p.pod?.partnerName ?? '';
     final today = solo.today;
     final cards = <Widget>[];
@@ -58,6 +76,23 @@ class PartnerSignals extends ConsumerWidget {
         onAction: () => ref.read(pushProvider.notifier).enable(),
         secondary: l.pushNotNow,
         onSecondary: () => ref.read(pushProvider.notifier).dismiss(),
+      ));
+    }
+
+    // From day two, twice at most: a lost phone should not mean a new pod.
+    final started = solo.data.startDay;
+    final canSecure = ref.watch(backendProvider).configured; // securing needs a server
+    if (canSecure && account != null && !account.secured && settings != null && settings.secureDismissed < 2 && !ref.watch(secureHiddenProvider) && started != null && solo.today.isAfter(started)) {
+      cards.add(_Signal(
+        title: l.settingsSecure,
+        body: l.secureCardBody,
+        action: l.secureCardAction,
+        onAction: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SecureScreen())),
+        secondary: l.pushNotNow,
+        onSecondary: () {
+          ref.read(secureHiddenProvider.notifier).hide();
+          ref.read(settingsProvider.notifier).dismissSecure();
+        },
       ));
     }
 

@@ -8,7 +8,8 @@ enum ReplyTemplate {
   walk('walk'),
   proud('proud'),
   thankYou('thank_you'),
-  newRing('new_ring');
+  newRing('new_ring'),
+  hello('hello'); // the once-a-day nudge; never offered as a reply
 
   const ReplyTemplate(this.key);
 
@@ -33,4 +34,5 @@ String replyText(AppLocalizations l, ReplyTemplate t) => switch (t) {
       ReplyTemplate.proud => l.replyProud,
       ReplyTemplate.thankYou => l.replyThankYou,
       ReplyTemplate.newRing => l.replyNewRing,
+      ReplyTemplate.hello => l.replyHello,
     };

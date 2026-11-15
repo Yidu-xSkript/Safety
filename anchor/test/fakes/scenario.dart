@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:anchor/core/backend/pod_backend.dart';
 import 'package:anchor/core/push/push_service.dart';
+import 'package:anchor/core/reminders.dart';
 import 'package:anchor/core/shortcuts.dart';
 import 'package:anchor/features/pod/pod_controller.dart';
 import 'package:anchor/features/today/solo_controller.dart';
@@ -48,6 +49,24 @@ class FakePush implements PushService {
   void tap(PushRoute r) => _opened.add(r);
 }
 
+class FakeReminders implements ReminderService {
+  FakeReminders({this.grant = true});
+
+  bool grant;
+  int permissionRequests = 0;
+  final calls = <({TimeOfDay? at, bool skipToday})>[];
+
+  @override
+  Future<bool> requestPermission() async {
+    permissionRequests++;
+    return grant;
+  }
+
+  @override
+  Future<void> sync(TimeOfDay? at, {required bool skipToday, required String title, required String body}) async =>
+      calls.add((at: at, skipToday: skipToday));
+}
+
 class FakeShortcuts implements AppShortcuts {
   void Function()? onUrge;
 
@@ -67,7 +86,7 @@ class Scenario {
 
   /// Teo has started a pod and Mika has joined it, on the server. Mika's app (this phone) starts onboarded,
   /// with the pod cached as if it had been open before. [paired] false leaves Mika with no pod at all.
-  static Future<Scenario> create({bool paired = true, Map<String, Object> extraPrefs = const {}}) async {
+  static Future<Scenario> create({bool paired = true, DateTime? started, bool onboarded = true, Map<String, Object> extraPrefs = const {}}) async {
     final server = FakeServer(start: testNow);
     final teo = FakeBackend(server, 'teo');
     final mika = FakeBackend(server, 'mika');
@@ -80,7 +99,7 @@ class Scenario {
       podId = pod.podId;
     }
     SharedPreferences.setMockInitialValues({
-      'anchor.solo.v1': jsonEncode(onboardedMika(started: DateTime.utc(2026, 11, 14)).toJson()),
+      if (onboarded) 'anchor.solo.v1': jsonEncode(onboardedMika(started: started ?? DateTime.utc(2026, 11, 14)).toJson()),
       if (paired)
         'anchor.pod.v1': jsonEncode({
           'pod': PodInfo(podId: podId, status: PodStatus.active, partnerId: 'teo', partnerName: 'Teo').toJson(),
@@ -104,6 +123,7 @@ class Scenario {
     PushService? push,
     AppShortcuts? shortcuts,
     Future<bool> Function(Uri)? opener,
+    ReminderService? reminders,
     bool online = true,
   }) async {
     mika.online = online;
@@ -116,6 +136,7 @@ class Scenario {
         backendProvider.overrideWithValue(mika),
         pushServiceProvider.overrideWithValue(push ?? NoPush()),
         shortcutsProvider.overrideWithValue(shortcuts ?? NoShortcuts()),
+        reminderServiceProvider.overrideWithValue(reminders ?? FakeReminders()),
         if (opener != null) urlOpenerProvider.overrideWithValue(opener),
       ],
       child: const AnchorApp(),

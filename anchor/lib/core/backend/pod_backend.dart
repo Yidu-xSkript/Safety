@@ -64,10 +64,13 @@ class PodActivity {
   final List<ReplyInfo> replies; // involving me, newest first, last ~2 days
 }
 
+/// How far back the partner's and our own history is fetched (History shows months).
+const kHistoryDays = 366;
+
 /// An urge older than this is stale: a ping that sat in the queue for hours must not arrive as an alarm.
 const kUrgeFreshness = Duration(minutes: 30);
 
-enum PodErrorKind { alreadyInPod, invalidCode, tooManyAttempts, offline, notConfigured, other }
+enum PodErrorKind { alreadyInPod, invalidCode, tooManyAttempts, invalidOtp, emailInUse, offline, notConfigured, other }
 
 /// Every failure the UI can show, already sorted. Anything unrecognised is [PodErrorKind.other].
 class PodError implements Exception {
@@ -238,6 +241,20 @@ abstract class PodBackend {
   /// The partner's name, habits, pledges and ticks since 60 days before [today], shaped like [SoloData].
   Future<SoloData> fetchPartner(PodInfo pod, DateTime today);
 
+  /// The email this account is secured with, or null while it is still anonymous.
+  Future<String?> accountEmail();
+
+  /// Secure the anonymous account: sends a code to [email], then [confirmEmailLink] with that code.
+  Future<void> requestEmailLink(String email);
+  Future<void> confirmEmailLink(String email, String code);
+
+  /// After a reinstall: sign back in to an existing account with an emailed code.
+  Future<void> requestSignIn(String email);
+  Future<void> confirmSignIn(String email, String code);
+
+  /// Our own name, habits, pledges and ticks as the server has them (restoring after a reinstall).
+  Future<SoloData> fetchMine(DateTime today);
+
   /// The partner's open urge (if any) and the replies between us. Called on every refresh.
   Future<PodActivity> fetchActivity(PodInfo pod, DateTime now);
 
@@ -273,6 +290,18 @@ class UnconfiguredBackend implements PodBackend {
   Future<void> leavePod() async => _no();
   @override
   Future<SoloData> fetchPartner(PodInfo pod, DateTime today) async => _no();
+  @override
+  Future<String?> accountEmail() async => _no();
+  @override
+  Future<void> requestEmailLink(String email) async => _no();
+  @override
+  Future<void> confirmEmailLink(String email, String code) async => _no();
+  @override
+  Future<void> requestSignIn(String email) async => _no();
+  @override
+  Future<void> confirmSignIn(String email, String code) async => _no();
+  @override
+  Future<SoloData> fetchMine(DateTime today) async => _no();
   @override
   Future<PodActivity> fetchActivity(PodInfo pod, DateTime now) async => _no();
   @override

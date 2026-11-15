@@ -3,14 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/adaptive/adaptive_widgets.dart';
-import '../../core/kv.dart';
 import '../../l10n/app_localizations.dart';
+import '../pod/settings_controller.dart';
 
-/// The partner's phone number lives only on this device (docs/SECURITY.md). Phase 4's Pod settings write it;
-/// until then there is no number and Call/Text simply do not appear.
+/// The partner's phone number lives only on this device (docs/SECURITY.md). Pod settings write it; with none saved,
+/// Call/Text simply do not appear.
 const kPartnerPhoneKey = 'anchor.partner_phone';
 
-final partnerPhoneProvider = FutureProvider<String?>((ref) async => (await ref.watch(kvProvider.future)).get(kPartnerPhoneKey));
+final partnerPhoneProvider = Provider<String?>((ref) => ref.watch(settingsProvider).value?.partnerPhone);
 
 /// Overridden in tests so nothing really dials.
 final urlOpenerProvider = Provider<Future<bool> Function(Uri)>((_) => launchUrl);
@@ -21,7 +21,7 @@ class ContactButtons extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final phone = ref.watch(partnerPhoneProvider).value;
+    final phone = ref.watch(partnerPhoneProvider);
     if (phone == null || phone.isEmpty) return const SizedBox.shrink();
     final l = AppLocalizations.of(context);
     final open = ref.read(urlOpenerProvider);

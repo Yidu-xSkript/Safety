@@ -49,10 +49,11 @@ void main() {
     await t.pumpWidget(harness(const AnchorShell()));
     await t.tap(find.text('History'));
     await t.pumpAndSettle();
-    expect(find.text('Your first ring forms tonight.'), findsOneWidget);
+    expect(find.text('November 2026'), findsOneWidget);
     await t.tap(find.text('Pod'));
     await t.pumpAndSettle();
-    expect(find.text('Your pod will live here.'), findsOneWidget);
+    expect(find.text('Daily reminder'), findsOneWidget);
+    expect(find.text('Leave pod'), findsOneWidget);
   });
 
   testWidgets('iOS: Cupertino tab bar, no FAB, Urge is a toolbar action', (t) async {

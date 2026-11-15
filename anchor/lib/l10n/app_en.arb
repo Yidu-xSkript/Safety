@@ -78,7 +78,6 @@
   },
   "close": "Close",
   "historyPlaceholder": "Your first ring forms tonight.",
-  "podPlaceholder": "Your pod will live here.",
   "genericError": "Something went wrong on our side. Nothing was lost.",
   "welcomeTitle": "Two people. One honest line a day.",
   "welcomeBody": "A quiet pod for you and one person you trust.",
@@ -314,5 +313,135 @@
   },
   "pushRationaleBody": "Anchor can notify you quietly. Notifications never say what this app is for.",
   "pushEnable": "Turn on notifications",
-  "pushNotNow": "Not now"
+  "pushNotNow": "Not now",
+  "prevMonth": "Previous month",
+  "nextMonth": "Next month",
+  "legendHeld": "Held",
+  "legendSlipped": "Slipped",
+  "legendNone": "Not checked in",
+  "legendSides": "{left} on the left, {right} on the right",
+  "@legendSides": {
+    "placeholders": {
+      "left": {
+        "type": "String"
+      },
+      "right": {
+        "type": "String"
+      }
+    }
+  },
+  "bestStreakLabel": "Best streak",
+  "heldThisMonthLabel": "Held this month",
+  "countDays": "{count, plural, =1{1 day} other{{count} days}}",
+  "@countDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dayHabits": "Habits {done} of {total}",
+  "@dayHabits": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "dayPerson": "{name}: {state}",
+  "@dayPerson": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsPartner": "Partner",
+  "settingsReminder": "Daily reminder",
+  "reminderOff": "Off",
+  "reminderDenied": "Notifications are off for Anchor in your phone's settings.",
+  "settingsPartnerNumber": "Partner's number",
+  "partnerNumberNone": "Stays on this phone",
+  "partnerNumberHelp": "Saved only on this phone. It lets you call or text {name} from here.",
+  "@partnerNumberHelp": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "partnerNumberHint": "Phone number",
+  "save": "Save",
+  "remove": "Remove",
+  "settingsNotifications": "Notifications",
+  "on": "On",
+  "off": "Off",
+  "turnOn": "Turn on",
+  "settingsSecure": "Secure your pod",
+  "secureSubtitle": "Without this, a lost phone means a new pod.",
+  "secured": "Secured · {email}",
+  "@secured": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsLeave": "Leave pod",
+  "leaveTitle": "Leave this pod?",
+  "leaveBody": "You and {name} will no longer see each other's check-ins. {name} will be told your pod has changed. This can't be undone.",
+  "@leaveBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "cancel": "Cancel",
+  "endedTitle": "Your pod has ended.",
+  "endedBody": "You can still read your history together. Start a new pod when you are ready.",
+  "endedStart": "Start a new pod",
+  "secureTitle": "Secure your pod",
+  "secureBody": "Add your email so a lost or replaced phone doesn't mean a new pod. We only use it to sign you back in.",
+  "emailHint": "Email",
+  "sendCode": "Send code",
+  "codeTitle": "Enter the code",
+  "codeBody": "We sent a 6-digit code to {email}.",
+  "@codeBody": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "codeHint": "6-digit code",
+  "verify": "Verify",
+  "secureDone": "Your pod is secured.",
+  "done": "Done",
+  "errInvalidOtp": "That code didn't work. Check it and try again.",
+  "errEmailInUse": "That email is already used by another account.",
+  "secureCardBody": "Without this, a lost phone means a new pod.",
+  "secureCardAction": "Secure it",
+  "restoreAction": "I already have an account",
+  "restoreTitle": "Welcome back",
+  "restoreBody": "Enter the email you secured your pod with.",
+  "restoreNone": "We couldn't find a pod for that account.",
+  "waitingOn": "Waiting on {name}",
+  "@waitingOn": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "inSync": "In sync",
+  "sayHello": "Say hello",
+  "replyHello": "Just saying hello.",
+  "reminderBody": "Your daily check-in is open."
 }

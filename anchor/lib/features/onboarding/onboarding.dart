@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/adaptive/adaptive_widgets.dart';
 import '../../core/adaptive/step_layout.dart';
 import '../../l10n/app_localizations.dart';
+import '../pod/email_flow.dart';
 import '../rings/demo_data.dart';
 import '../rings/slab.dart';
 import '../rings/slab_painter.dart';
@@ -49,6 +50,11 @@ class WelcomeScreen extends StatelessWidget {
           label: l.getStarted,
           expand: true,
           onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NameScreen())),
+        ),
+        AdaptiveButton(
+          label: l.restoreAction,
+          kind: ButtonKind.text,
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const RestoreScreen())),
         ),
       ],
     );

@@ -90,45 +90,101 @@ class SupabaseBackend implements PodBackend {
   Future<void> leavePod() => _guard(() => _c.rpc('leave_pod'));
 
   @override
-  Future<SoloData> fetchPartner(PodInfo pod, DateTime today) => _guard(() async {
-        final id = pod.partnerId!;
-        final since = dayKey(addDays(today, -60));
-        final cis = await _c.from('check_ins').select('local_date,status,note,updated_at').eq('user_id', id).gte('local_date', since);
-        final habits = await _c.from('habits').select('id,title,created_day,archived_day').eq('user_id', id);
-        final logs = await _c.from('habit_logs').select('habit_id,local_date').eq('user_id', id).gte('local_date', since);
+  Future<SoloData> fetchPartner(PodInfo pod, DateTime today) => _guard(() => _person(pod.partnerId!, pod.partnerName ?? '', today));
 
-        final checkIns = {
-          for (final r in cis)
-            r['local_date'] as String: CheckIn(
-              state: PledgeState.values.byName(r['status'] as String),
-              at: DateTime.parse(r['updated_at'] as String).toLocal(),
-              note: r['note'] as String?,
-            ),
-        };
-        final ticked = <String, Set<String>>{};
-        for (final r in logs) {
-          (ticked[r['local_date'] as String] ??= {}).add(r['habit_id'] as String);
-        }
-        final habitList = [
-          for (final r in habits)
-            Habit(
-              id: r['id'] as String,
-              title: r['title'] as String,
-              createdDay: parseDayKey(r['created_day'] as String),
-              archivedDay: r['archived_day'] == null ? null : parseDayKey(r['archived_day'] as String),
-            ),
-        ];
-        // First day with anything on record; days before it did not happen for them.
-        final days = [...checkIns.keys.map(parseDayKey), ...habitList.map((h) => h.createdDay)]..sort();
-        return SoloData(
-          name: pod.partnerName ?? '',
-          onboarded: true,
-          startDay: days.isEmpty ? null : days.first,
-          habits: habitList,
-          checkIns: checkIns,
-          logs: ticked,
-        );
+  @override
+  Future<SoloData> fetchMine(DateTime today) => _guard(() async {
+        final me = _c.auth.currentUser!.id;
+        final row = await _c.from('profiles').select('display_name').eq('id', me).maybeSingle();
+        return _person(me, (row?['display_name'] as String?) ?? '', today);
       });
+
+  /// One person's name, habits, pledges and ticks since [kHistoryDays] ago, shaped like [SoloData].
+  Future<SoloData> _person(String id, String name, DateTime today) async {
+    final since = dayKey(addDays(today, -kHistoryDays));
+    final cis = await _c.from('check_ins').select('local_date,status,note,updated_at').eq('user_id', id).gte('local_date', since);
+    final habits = await _c.from('habits').select('id,title,created_day,archived_day').eq('user_id', id);
+    final logs = await _c.from('habit_logs').select('habit_id,local_date').eq('user_id', id).gte('local_date', since);
+
+    final checkIns = {
+      for (final r in cis)
+        r['local_date'] as String: CheckIn(
+          state: PledgeState.values.byName(r['status'] as String),
+          at: DateTime.parse(r['updated_at'] as String).toLocal(),
+          note: r['note'] as String?,
+        ),
+    };
+    final ticked = <String, Set<String>>{};
+    for (final r in logs) {
+      (ticked[r['local_date'] as String] ??= {}).add(r['habit_id'] as String);
+    }
+    final habitList = [
+      for (final r in habits)
+        Habit(
+          id: r['id'] as String,
+          title: r['title'] as String,
+          createdDay: parseDayKey(r['created_day'] as String),
+          archivedDay: r['archived_day'] == null ? null : parseDayKey(r['archived_day'] as String),
+        ),
+    ];
+    // First day with anything on record; days before it did not happen for them.
+    final days = [...checkIns.keys.map(parseDayKey), ...habitList.map((h) => h.createdDay)]..sort();
+    return SoloData(name: name, onboarded: true, startDay: days.isEmpty ? null : days.first, habits: habitList, checkIns: checkIns, logs: ticked);
+  }
+
+  @override
+  Future<String?> accountEmail() => _guard(() async {
+        final u = _c.auth.currentUser;
+        final e = u?.email;
+        return (u == null || u.isAnonymous || e == null || e.isEmpty) ? null : e;
+      });
+
+  /// A code that does not verify is the person's mistake, not a crash.
+  Future<void> _verify(Future<Object?> Function() f) async {
+    try {
+      await f();
+    } on AuthRetryableFetchException {
+      throw const PodError(PodErrorKind.offline);
+    } on AuthException {
+      throw const PodError(PodErrorKind.invalidOtp);
+    } catch (e) {
+      throw _map(e);
+    }
+  }
+
+  @override
+  Future<void> requestEmailLink(String email) async {
+    try {
+      await _c.auth.updateUser(UserAttributes(email: email));
+    } on AuthException catch (e) {
+      if (e is AuthRetryableFetchException) throw const PodError(PodErrorKind.offline);
+      if (e.code == 'email_exists' || e.message.toLowerCase().contains('already')) throw const PodError(PodErrorKind.emailInUse);
+      if (e.code == 'over_email_send_rate_limit' || e.statusCode == '429') throw const PodError(PodErrorKind.tooManyAttempts);
+      throw const PodError(PodErrorKind.other);
+    } catch (e) {
+      throw _map(e);
+    }
+  }
+
+  @override
+  Future<void> confirmEmailLink(String email, String code) =>
+      _verify(() => _c.auth.verifyOTP(email: email, token: code, type: OtpType.emailChange));
+
+  @override
+  Future<void> requestSignIn(String email) async {
+    try {
+      await _c.auth.signInWithOtp(email: email, shouldCreateUser: false);
+    } on AuthException catch (e) {
+      if (e is AuthRetryableFetchException) throw const PodError(PodErrorKind.offline);
+      if (e.code == 'over_email_send_rate_limit' || e.statusCode == '429') throw const PodError(PodErrorKind.tooManyAttempts);
+      throw const PodError(PodErrorKind.other);
+    } catch (e) {
+      throw _map(e);
+    }
+  }
+
+  @override
+  Future<void> confirmSignIn(String email, String code) => _verify(() => _c.auth.verifyOTP(email: email, token: code, type: OtpType.email));
 
   @override
   Future<PodActivity> fetchActivity(PodInfo pod, DateTime now) => _guard(() async {
