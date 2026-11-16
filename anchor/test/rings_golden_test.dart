@@ -1,6 +1,9 @@
 // Golden images for the signature component. Text renders in the test font (Ahem) so images are
 // deterministic across machines; they check ring geometry, state shapes and layout, not typography.
 // Update intentionally with: flutter test --update-goldens
+@Tags(['golden'])
+library;
+
 import 'package:anchor/features/rings/demo_data.dart';
 import 'package:anchor/features/rings/pod_header.dart';
 import 'package:anchor/features/rings/ring_model.dart';

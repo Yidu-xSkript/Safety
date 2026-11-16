@@ -131,7 +131,7 @@ class _UrgeScreenState extends ConsumerState<UrgeScreen> with SingleTickerProvid
                       if (paired) Text(queued ? l.urgeQueued(partner) : l.urgeToldYes(partner), style: t.titleLarge, textAlign: TextAlign.center),
                       if (paired) const SizedBox(height: 4),
                       Text(l.urgeStay, style: t.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant), textAlign: TextAlign.center),
-                      Expanded(child: done ? _end(l, t) : _grounding(l, t)),
+                      Expanded(child: _centered(done ? _end(l, t) : _grounding(l, t))),
                       if (reply != null) _replyCard(l, t, partner, reply),
                       const SizedBox(height: 8),
                       const ContactButtons(),
@@ -149,12 +149,19 @@ class _UrgeScreenState extends ConsumerState<UrgeScreen> with SingleTickerProvid
     );
   }
 
+  /// Centred when it fits; scrolls when large text or a small phone makes it taller than the space. Never clipped.
+  Widget _centered(Widget child) => LayoutBuilder(
+        builder: (context, c) => SingleChildScrollView(
+          child: ConstrainedBox(constraints: BoxConstraints(minHeight: c.maxHeight), child: Center(child: child)),
+        ),
+      );
+
   Widget _grounding(AppLocalizations l, TextTheme t) {
     final steps = [l.urgeStep1, l.urgeStep2, l.urgeStep3];
     final inhale = breathPhase(_elapsed) == BreathPhase.inhale;
     final reduce = _breath == null;
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         // One slow ring. Reduced motion: it holds still and the words carry the breath.
         SizedBox(
@@ -192,7 +199,7 @@ class _UrgeScreenState extends ConsumerState<UrgeScreen> with SingleTickerProvid
 
   Widget _end(AppLocalizations l, TextTheme t) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(l.urgeEndTitle, style: t.headlineLarge, textAlign: TextAlign.center),
         const SizedBox(height: 32),

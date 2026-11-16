@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/backend/pod_backend.dart';
+import '../../core/kv.dart';
 import 'pod_controller.dart';
 
 class AccountState {
@@ -23,6 +24,13 @@ class AccountController extends AsyncNotifier<AccountState> {
     } on PodError {
       return const AccountState(); // unconfigured or offline: treated as not secured; refreshed when asked
     }
+  }
+
+  /// Deletes the account on the server (when there is one) and everything stored on this phone. If the server cannot
+  /// be reached nothing is wiped and the error is thrown, so it can be tried again. The caller then resets app state.
+  Future<void> deleteAccount() async {
+    if (_backend.configured) await _backend.deleteAccount();
+    await (await ref.read(kvProvider.future)).clear();
   }
 
   Future<void> requestLink(String email) => _backend.requestEmailLink(email.trim());

@@ -39,21 +39,21 @@ Android: visibility is `PUBLIC` because the text is already generic (FCM has no 
 | Threat | Mitigation |
 |---|---|
 | Someone glances at the phone | App looks like a wellness app; generic notifications; no explicit words on any screen outside the app; Today shows rings, not text about the habit |
-| Someone borrows the phone | Optional app lock (`local_auth`, biometric or device credential), on by default once a pod is active; locks after 30 s in background |
-| App-switcher snapshot | Blur / solid cover when backgrounded; Android `FLAG_SECURE` as a setting (default on) |
+| Someone borrows the phone | App lock (`local_auth`, biometric or device credential), on by default once a pod exists and the phone can lock; locks after 30 s away; turning it off asks the system first; **Urge still opens from the lock screen** so a crisis is never stuck behind a fingerprint |
+| App-switcher snapshot | A plain cover the moment the app is no longer active (iOS and Android); Android `FLAG_SECURE` also blocks screenshots and the recents thumbnail. One switch, default on |
 | Someone guesses an invite code | 6 chars from a 31-symbol alphabet (~887M), single-use, 24 h expiry, 5 wrong tries per user per hour, row lock on join |
 | Third party reads a pod | RLS on every table; `is_pod_member()` gate; RLS test suite in CI |
 | Client tampers with history | No delete policy on `check_ins`/`urge_events`; column-limited update grants; same-day edit trigger; server verifies `local_date` |
 | Partner abuses the channel | Replies are **prepared words only**, no free text in v1; one nudge per day; either person can leave in one tap; leaving ends all access immediately |
-| Account takeover | Session in Keychain/Keystore; email-link OTP only after the user opts into "Secure your pod"; no passwords stored |
+| Account takeover | Session in Keychain/Keystore (`flutter_secure_storage`); email-link OTP only after the user opts into "Secure your pod"; no passwords stored |
 | Lost phone, no email linked | Honest limit: pod is unrecoverable. Onboarding states this once, plainly, and offers to link email |
 | Server breach | No free-text beyond a ≤500-char note and a ≤24-char name; no phone numbers; no content that names the behaviour is ever *required* |
 
 ## Account and data rights
 
-- **Delete account** is one screen in Pod → Settings, in-app (App Store requirement), backed by the `delete-account` Edge Function. It cascades the user's rows and archives the pod.
+- **Delete account** is a row in Pod (App Store requirement), backed by the `delete-account` Edge Function (verify-JWT stays on; the caller is read from the session, never the body). It leaves the pod first (archiving it for the partner), then deletes the auth user; foreign keys cascade every row. Migration `0003` makes `pods.created_by` `on delete set null` so a pod's creator can be deleted. Nothing is wiped locally unless the server step succeeded; a phone with no server wipes only itself.
 - **Leave pod** ends both people's access to each other's data as far as *new* data goes: the leaver can no longer read the partner at all; the one who stays keeps read-only access to history the pod already holds (and can start a new pod). Each keeps their own. In-app confirmation names the consequence and that it cannot be undone.
-- **Export** (Phase 5): JSON of your own data.
+- **Export:** Pod → Export my data shares a JSON file of your own rows (`export_my_data()`; never the partner's data, ids or push tokens). Offline it exports the copy on the phone.
 - Retention: while the account exists. No backups are exposed to clients.
 
 ## Not a crisis service

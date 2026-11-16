@@ -5,15 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
+import 'package:supabase_flutter/supabase_flutter.dart' show FlutterAuthClientOptions, Supabase;
 
 import 'app/navigation.dart';
 import 'app/shell.dart';
 import 'app/theme.dart';
 import 'core/backend/pod_backend.dart';
+import 'core/backend/secure_session_storage.dart';
 import 'core/backend/supabase_backend.dart';
 import 'core/push/push_service.dart';
 import 'core/shortcuts.dart';
+import 'features/lock/lock_controller.dart';
+import 'features/lock/lock_screen.dart';
 import 'features/onboarding/onboarding.dart';
 import 'features/pod/pairing_screens.dart';
 import 'features/pod/pod_controller.dart';
@@ -27,7 +30,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   // Pairing needs a server: flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
-  if (supabaseConfigured) await Supabase.initialize(url: kSupabaseUrl, publishableKey: kSupabaseAnonKey);
+  if (supabaseConfigured) {
+    await Supabase.initialize(
+      url: kSupabaseUrl,
+      publishableKey: kSupabaseAnonKey,
+      authOptions: const FlutterAuthClientOptions(localStorage: SecureSessionStorage()), // the session in the Keychain/Keystore
+    );
+  }
   // Notifications need a Firebase project (docs/PUSH.md). Without its config files this throws and we run without push.
   PushService push = NoPush();
   try {
@@ -52,17 +61,25 @@ class _AnchorAppState extends ConsumerState<AnchorApp> {
   @override
   void initState() {
     super.initState();
-    _lifecycle = AppLifecycleListener(onResume: () {
+    _lifecycle = AppLifecycleListener(
+      onInactive: () => setState(() => _covered = true), // the app switcher snapshots the screen at this moment
+      onHide: () => ref.read(lockProvider.notifier).leaving(),
+      onPause: () => ref.read(lockProvider.notifier).leaving(),
+      onResume: () {
+      setState(() => _covered = false);
+      ref.read(lockProvider.notifier).returned();
       ref.read(soloProvider.notifier).refreshDay();
       ref.read(podProvider.notifier).refresh(); // partner may have changed things while we slept
       ref.read(podProvider.notifier).flush();
       ref.read(pushProvider.notifier).sync(); // make sure the server has this phone's token
       ref.invalidate(reminderSyncProvider); // re-anchor the daily reminder (also after a daylight-saving change)
-    });
+      },
+    );
     _outside();
   }
 
   StreamSubscription<PushRoute>? _opened;
+  bool _covered = false;
 
   /// Things that start outside the widget tree: the "Urge" icon shortcut and a tapped notification.
   void _outside() {
@@ -97,9 +114,12 @@ class _AnchorAppState extends ConsumerState<AnchorApp> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(privacySyncProvider); // Android FLAG_SECURE follows the setting
+    final hide = ref.watch(settingsProvider.select((s) => s.value?.hideInSwitcher ?? true));
     ref.watch(reminderSyncProvider); // schedules the daily reminder whenever the setting or today's check-in changes
     return MaterialApp(
       navigatorKey: navigatorKey,
+      builder: (context, child) => Stack(fit: StackFit.expand, children: [child!, if (_covered && hide) const PrivacyCover()]),
       onGenerateTitle: (c) => AppLocalizations.of(c).appName,
       theme: anchorTheme(Brightness.light),
       darkTheme: anchorTheme(Brightness.dark),
@@ -127,9 +147,11 @@ class _Root extends ConsumerWidget {
     if (solo.hasError || pod.hasError) {
       return Scaffold(body: Center(child: Text(AppLocalizations.of(context).genericError)));
     }
-    if (!solo.hasValue || !pod.hasValue) return blank;
+    final lock = ref.watch(lockProvider);
+    if (!solo.hasValue || !pod.hasValue || !lock.hasValue) return blank;
 
     if (!solo.requireValue.data.onboarded) return const WelcomeScreen();
+    if (lock.requireValue) return const LockScreen();
     final p = pod.requireValue;
     return switch (p.pod?.status) {
       PodStatus.active when p.justPaired => const PairedMoment(),

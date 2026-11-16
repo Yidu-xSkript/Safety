@@ -1,6 +1,7 @@
 // An in-memory "server" two phones can share, enforcing the same rules as supabase/migrations/0001_init.sql
 // (those rules are proven by supabase/tests/rls.sql; this keeps the Dart side honest against them).
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:anchor/core/backend/pod_backend.dart';
@@ -44,7 +45,7 @@ class FakeReply {
 class FakeServer {
   FakeServer({DateTime Function()? now, DateTime? start})
       : _clock = now,
-        _t = start ?? DateTime.now();
+        _t = start ?? DateTime(2026, 11, 14, 12); // never the real clock: tests must not depend on today's date
 
   final DateTime Function()? _clock;
   DateTime _t;
@@ -187,6 +188,40 @@ class FakeBackend implements PodBackend {
   Future<SoloData> fetchMine(DateTime today) async {
     _net();
     return _person(userId, server.names[userId] ?? '');
+  }
+
+  /// Calls made to delete an account, so tests can assert nothing was deleted by accident.
+  int deleteCalls = 0;
+
+  @override
+  Future<void> deleteAccount() async {
+    _net();
+    deleteCalls++;
+    final p = server.podOf(userId);
+    if (p != null) {
+      p.left.add(userId);
+      p.status = PodStatus.archived;
+      p.code = null;
+      server.notify(p.id);
+    }
+    server.habits.remove(userId);
+    server.checkIns.remove(userId);
+    server.ticks.remove(userId);
+    server.urges.removeWhere((_, u) => u.user == userId);
+    server.replies.removeWhere((r) => r.from == userId || r.to == userId);
+    server.names.remove(userId);
+    final email = server.emails.remove(userId);
+    if (email != null) server.accounts.remove(email);
+    server.devices.removeWhere((_, d) => d.user == userId);
+  }
+
+  @override
+  Future<String> exportMyData() async {
+    _net();
+    return const JsonEncoder.withIndent('  ').convert({
+      'profile': {'display_name': server.names[userId]},
+      'data': _person(userId, server.names[userId] ?? '').toJson(),
+    });
   }
 
   @override

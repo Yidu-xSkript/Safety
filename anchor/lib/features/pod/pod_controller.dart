@@ -231,6 +231,19 @@ class PodController extends AsyncNotifier<PodState> {
     return true;
   }
 
+  /// Everything we hold that is yours, as JSON. Prefers the server's copy; with no server or no connection it exports what is on this phone.
+  Future<String> exportJson() async {
+    if (_backend.configured && state.value?.pod != null) {
+      try {
+        return await _backend.exportMyData();
+      } on PodError {
+        // fall through to the copy on this phone
+      }
+    }
+    final mine = ref.read(soloProvider).requireValue.data;
+    return const JsonEncoder.withIndent('  ').convert({'source': 'this phone', 'exportedAt': _now().toIso8601String(), 'data': mine.toJson()});
+  }
+
   /// "Say hello": the one nudge a day. The server refuses a second; the screen never offers it.
   void sayHello() {
     final partner = state.value?.pod?.partnerId;

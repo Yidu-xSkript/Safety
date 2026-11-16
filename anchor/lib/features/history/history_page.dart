@@ -136,13 +136,17 @@ class _MonthBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final ios = isIOS(context);
-    Widget arrow(IconData icon, String tip, VoidCallback? on) => Semantics(
-          button: true,
-          label: tip,
-          child: ios
-              ? CupertinoButton(padding: EdgeInsets.zero, minimumSize: const Size(44, 44), onPressed: on, child: Icon(icon))
-              : IconButton(onPressed: on, icon: Icon(icon), tooltip: tip),
-        );
+    // One labelled control each: the tooltip labels Android's IconButton; on iOS the wrapper owns the label and the tap.
+    Widget arrow(IconData icon, String tip, VoidCallback? on) => ios
+        ? Semantics(
+            button: true,
+            label: tip,
+            enabled: on != null,
+            excludeSemantics: true,
+            onTap: on,
+            child: CupertinoButton(padding: EdgeInsets.zero, minimumSize: const Size(44, 44), onPressed: on, child: Icon(icon)),
+          )
+        : IconButton(onPressed: on, icon: Icon(icon), tooltip: tip);
     return Row(
       children: [
         arrow(ios ? CupertinoIcons.chevron_left : Icons.chevron_left, l.prevMonth, onPrev),
@@ -190,18 +194,21 @@ class _DayCell extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            height: 64, // a comfortable tap target even though the glyphs are small
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 64), // a comfortable tap target even though the glyphs are small; grows with the text
             child: LayoutBuilder(builder: (context, c) {
               final g = ((c.maxWidth - 6) / 2).clamp(10.0, 20.0);
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    '${day.day}',
-                    style: t.labelMedium?.copyWith(
-                      color: isToday ? context.paletteYou : Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '${day.day}',
+                      style: t.labelMedium?.copyWith(
+                        color: isToday ? context.paletteYou : Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),

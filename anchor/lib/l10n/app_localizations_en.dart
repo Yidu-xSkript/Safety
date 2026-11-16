@@ -621,4 +621,63 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reminderBody => 'Your daily check-in is open.';
+
+  @override
+  String get lockTitle => 'Anchor is locked';
+
+  @override
+  String get unlock => 'Unlock';
+
+  @override
+  String get lockReason => 'Unlock Anchor';
+
+  @override
+  String get settingsAppLock => 'App lock';
+
+  @override
+  String get appLockSubtitle => 'Face, fingerprint or your phone\'s passcode';
+
+  @override
+  String get appLockUnavailable => 'Not available on this phone';
+
+  @override
+  String get settingsHide => 'Hide in app switcher';
+
+  @override
+  String get hideSubtitleAndroid =>
+      'Shows nothing when you switch apps. Also blocks screenshots.';
+
+  @override
+  String get hideSubtitleIos => 'Shows nothing when you switch apps.';
+
+  @override
+  String get settingsExport => 'Export my data';
+
+  @override
+  String get exportSubtitle => 'Everything you have saved, as a file';
+
+  @override
+  String get settingsDelete => 'Delete account';
+
+  @override
+  String get deleteAccountTitle => 'Delete your account?';
+
+  @override
+  String deleteBodyPod(String name) {
+    return 'This permanently deletes your check-ins, habits and notes from our servers and from this phone. $name will be told your pod has changed. This can\'t be undone.';
+  }
+
+  @override
+  String get deleteBodySolo =>
+      'This permanently deletes everything Anchor has stored, on this phone and on our servers. This can\'t be undone.';
+
+  @override
+  String get deleteConfirm => 'Delete everything';
+
+  @override
+  String get ok => 'OK';
+
+  @override
+  String get exportFailed =>
+      'Couldn\'t prepare your data. Check your connection and try again.';
 }

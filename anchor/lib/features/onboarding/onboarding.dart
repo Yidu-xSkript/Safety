@@ -29,14 +29,17 @@ class WelcomeScreen extends StatelessWidget {
         const SizedBox(height: 24),
         // Decorative: the two-slab idea in one glance. Synthetic data, hidden from screen readers.
         ExcludeSemantics(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Slab(name: '', data: demoYou, person: Person.you, diameter: 130),
-              const SizedBox(width: 24),
-              Slab(name: '', data: demoPartner, person: Person.partner, diameter: 130),
-            ],
-          ),
+          child: LayoutBuilder(builder: (context, c) {
+            final d = ((c.maxWidth - 24) / 2).clamp(80.0, 130.0); // two slabs and a gap, whatever the phone's width
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Slab(name: '', data: demoYou, person: Person.you, diameter: d),
+                const SizedBox(width: 24),
+                Slab(name: '', data: demoPartner, person: Person.partner, diameter: d),
+              ],
+            );
+          }),
         ),
         const SizedBox(height: 40),
         Text(l.welcomeTitle, style: t.headlineLarge),

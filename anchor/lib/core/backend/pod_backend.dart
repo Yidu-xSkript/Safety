@@ -252,6 +252,12 @@ abstract class PodBackend {
   Future<void> requestSignIn(String email);
   Future<void> confirmSignIn(String email, String code);
 
+  /// Permanently deletes this account and everything of ours on the server (and signs out). No-op when there is no account.
+  Future<void> deleteAccount();
+
+  /// Everything the server holds that is ours, as pretty JSON.
+  Future<String> exportMyData();
+
   /// Our own name, habits, pledges and ticks as the server has them (restoring after a reinstall).
   Future<SoloData> fetchMine(DateTime today);
 
@@ -300,6 +306,10 @@ class UnconfiguredBackend implements PodBackend {
   Future<void> requestSignIn(String email) async => _no();
   @override
   Future<void> confirmSignIn(String email, String code) async => _no();
+  @override
+  Future<void> deleteAccount() async => _no();
+  @override
+  Future<String> exportMyData() async => _no();
   @override
   Future<SoloData> fetchMine(DateTime today) async => _no();
   @override

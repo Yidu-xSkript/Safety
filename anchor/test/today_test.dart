@@ -1,5 +1,8 @@
 // Today screen goldens (text renders in the Ahem test font, so these check layout, rings and states),
 // plus the Remove-animations contract for the ring sweep.
+@Tags(['golden'])
+library;
+
 import 'package:anchor/app/shell.dart';
 import 'package:anchor/core/local_day.dart';
 import 'package:anchor/features/rings/ring_model.dart';

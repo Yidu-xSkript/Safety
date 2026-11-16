@@ -5,12 +5,33 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import android.os.Bundle
-import io.flutter.embedding.android.FlutterActivity
+import android.view.WindowManager
+import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity() {
+// FlutterFragmentActivity (not FlutterActivity): the biometric prompt of the app lock (local_auth) needs it.
+class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         createNotificationChannels()
+    }
+
+    // "Hide in app switcher": FLAG_SECURE blanks the recents thumbnail and blocks screenshots and screen recording.
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.anchor/privacy").setMethodCallHandler { call, result ->
+            if (call.method == "setSecure") {
+                val on = call.arguments as? Boolean ?: true
+                runOnUiThread {
+                    if (on) window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+                    else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+                result.success(null)
+            } else {
+                result.notImplemented()
+            }
+        }
     }
 
     // FCM names a channel in each message (see supabase/functions/notify/logic.ts); it must already exist.

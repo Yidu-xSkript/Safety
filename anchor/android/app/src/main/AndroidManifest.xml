@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Android 13+: asked at runtime, after our own explanation (never cold). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- App lock: biometric prompt (falls back to the phone passcode). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <!-- The daily reminder is rescheduled after a reboot. It is inexact on purpose: no exact-alarm permission. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application

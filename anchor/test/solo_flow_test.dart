@@ -1,6 +1,7 @@
 // The Phase 1 acceptance path (log a full day, survive a restart, roll over at 04:00) on both platforms, plus
 // onboarding up to the pairing choice. Storage is fake preferences, time is a controllable clock, and the
 // partner is a cached synthetic Teo (no server: the backend is "unconfigured").
+import 'package:anchor/core/app_lock.dart';
 import 'package:anchor/features/rings/ring_model.dart';
 import 'package:anchor/features/rings/slab.dart';
 import 'package:anchor/features/today/solo_controller.dart';
@@ -10,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'fakes/fake_lock.dart';
 import 'harness.dart';
 
 final textField = find.byWidgetPredicate((w) => w is TextField || w is CupertinoTextField);
@@ -19,7 +21,10 @@ Future<void> launch(WidgetTester t) async {
   t.view.physicalSize = const Size(400, 1600);
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
-  await t.pumpWidget(ProviderScope(overrides: [clockProvider.overrideWithValue(() => now)], child: const AnchorApp()));
+  await t.pumpWidget(ProviderScope(
+    overrides: [clockProvider.overrideWithValue(() => now), appLockServiceProvider.overrideWithValue(FakeAppLock())],
+    child: const AnchorApp(),
+  ));
   await t.pumpAndSettle();
 }
 

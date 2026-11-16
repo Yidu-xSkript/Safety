@@ -5,6 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 abstract class KV {
   String? get(String key);
   Future<void> set(String key, String value);
+
+  /// Everything this app stored on the phone (account deletion).
+  Future<void> clear();
 }
 
 class PrefsKV implements KV {
@@ -17,6 +20,9 @@ class PrefsKV implements KV {
 
   @override
   Future<void> set(String key, String value) => _p.setString(key, value);
+
+  @override
+  Future<void> clear() => _p.clear();
 }
 
 final kvProvider = FutureProvider<KV>((_) async => PrefsKV(await SharedPreferences.getInstance()));

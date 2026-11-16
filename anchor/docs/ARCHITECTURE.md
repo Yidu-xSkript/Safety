@@ -35,7 +35,7 @@ Two phones never talk to each other. The pod is a row; both phones watch it.
 | Streaks | Computed on the client in one pure Dart function | One implementation, unit-tested, works offline | A server-side feature (e.g. email digest) needs them |
 | l10n | `flutter_localizations` + ARB from day one, English only | Amharic is a candidate; retrofitting strings is painful | — |
 
-Dependencies are exactly: `supabase_flutter`, `flutter_riverpod`, `go_router`, `firebase_core`, `firebase_messaging`, `flutter_local_notifications`, `shared_preferences`, `flutter_secure_storage`, `local_auth`, `intl`, `url_launcher` (call/text), `cupertino_icons` (bundles the font `CupertinoIcons` draws from; added in Phase 0). In so far: Phase 0 `cupertino_icons`, `intl`; Phase 1 `flutter_riverpod`, `shared_preferences`; Phase 2 `supabase_flutter`, `share_plus` (the system share sheet for the invite code). Phase 3 added `firebase_core`, `firebase_messaging`, `url_launcher` (Call/Text), `quick_actions`. Not yet: `go_router`, `local_auth`, `flutter_secure_storage`, `flutter_local_notifications` (their phases). Adding one needs a reason in the PR.
+Dependencies are exactly: `supabase_flutter`, `flutter_riverpod`, `go_router`, `firebase_core`, `firebase_messaging`, `flutter_local_notifications`, `shared_preferences`, `flutter_secure_storage`, `local_auth`, `intl`, `url_launcher` (call/text), `cupertino_icons` (bundles the font `CupertinoIcons` draws from; added in Phase 0). In so far: Phase 0 `cupertino_icons`, `intl`; Phase 1 `flutter_riverpod`, `shared_preferences`; Phase 2 `supabase_flutter`, `share_plus` (the system share sheet for the invite code). Phase 3 added `firebase_core`, `firebase_messaging`, `url_launcher` (Call/Text), `quick_actions`. Phase 4 added `flutter_local_notifications`, `timezone`; Phase 5 added `local_auth`, `flutter_secure_storage` (and the dev-only `flutter_launcher_icons`). Not used: `go_router`. Adding one needs a reason in the PR.
 
 ## Code layout (feature-first)
 
@@ -124,6 +124,15 @@ Each feature folder splits `data/` (repository, Supabase calls), `domain/` (pure
 - **Leaving:** `PodController.leavePod()` calls `leave_pod()` (archives the pod, ends both memberships' read access as the SQL tests prove), clears the queue and the pod cache, keeps your own history. The one who stayed gets an archived pod; `refresh()` keeps the partner's identity (the server stops naming them once they have left) and keeps reading their history, which `is_pod_member` still allows.
 - **Account:** `AccountController` + `EmailCodeScreen`: `updateUser(email)` then `verifyOTP(emailChange)` to secure; `signInWithOtp(shouldCreateUser: false)` then `verifyOTP(email)` to come back. `PodController.restoreFromServer()` rebuilds our own name, habits, pledges and ticks plus the pod and partner, marks the pod as already uploaded so nothing is sent again.
 - **History window:** both people's data is fetched for the last 366 days (`kHistoryDays`).
+
+## Hardening (as built in Phase 5)
+
+- **Lock** (`core/app_lock.dart`, `features/lock/`): `LockController` decides `locked` once at start (onboarded + a pod + the phone can lock + not turned off), then on resume after `kLockAfter` (30 s) away. `LockScreen` replaces the app inside `_Root`, so routes pushed on top (the Urge screen from its button or the icon shortcut) still work while locked. Turning the lock on or off requires a successful system prompt. Android needs `FlutterFragmentActivity`, `USE_BIOMETRIC` and an AppCompat launch theme (done); iOS needs `NSFaceIDUsageDescription` (done).
+- **Cover:** `AnchorApp` overlays `PrivacyCover` while the lifecycle is `inactive`; `privacySyncProvider` mirrors the setting to Android's `FLAG_SECURE` through a method channel in `MainActivity`.
+- **Session storage:** `SecureSessionStorage` (Keychain / Android Keystore) replaces Supabase's default preference storage.
+- **Account data:** `AccountController.deleteAccount()` (server first, then `KV.clear()`), then the Pod page invalidates every provider so the app reloads empty at Welcome. `PodController.exportJson()` prefers `export_my_data()` and falls back to local data; sharing goes through `core/share.dart` (overridable in tests).
+- **Tests that guard this:** `lock_test`, `account_data_test`, `accessibility_test` (tap targets, labels, overflow at 320dp / 200%), `no_logging_test`; text contrast is proven from the tokens in `contrast_test` (the pixel-sampling guideline is meaningless with the test font).
+- **CI** (`.github/workflows/anchor.yml`): analyze + tests (goldens excluded via `dart_test.yaml`), SQL/RLS tests on PGlite, Edge Function tests on Node.
 
 ## Adaptive UI
 

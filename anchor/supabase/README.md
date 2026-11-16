@@ -5,10 +5,12 @@ Backend for Anchor. Rules and rationale: [`docs/SCHEMA.md`](../docs/SCHEMA.md).
 ```
 migrations/0001_init.sql   tables, RLS, RPCs, realtime
 migrations/0002_push.sql   register_device
+migrations/0003_account.sql export_my_data, pods.created_by on delete set null (so a creator can be deleted)
+functions/delete-account/  Edge Function: the caller deletes their own account (logic.ts tested under Node)
 functions/notify/          Edge Function: webhook -> who? -> generic push (logic.ts is tested; fcm.ts, index.ts are I/O)
 webhooks.example.sql       the five Database Webhooks that call it (template, fill in then run)
 tests/stubs.sql            Supabase stand-ins (auth schema, roles) for the local runner only
-tests/rls.sql              17 sections of SQL tests
+tests/rls.sql              19 sections of SQL tests
 tests/run.mjs              runs migration + tests on PGlite (no Docker)
 ```
 
@@ -45,4 +47,4 @@ Without those two values the app still runs; pairing then says "Anchor isn't con
 - Two phones, one pod, end to end on real hardware (the Dart client is tested against an in-memory server, not yet a live project).
 - Two simultaneous `join_pod` calls on one code: exactly one must win.
 - Notifications: follow `docs/PUSH.md` (Firebase project, APNs key, secrets, deploy `notify`, webhooks). Nothing there has run against a live project yet.
-- `delete-account` arrives in Phase 5.
+- Deploy `delete-account` with the default JWT verification ON (`supabase functions deploy delete-account`); the app calls it as the signed-in user. Try it on a throwaway account first.

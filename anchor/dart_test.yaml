@@ -1,0 +1,5 @@
+# Golden images are pixel-exact and differ a little between operating systems, so CI (Linux) skips them:
+#   flutter test --exclude-tags golden
+# Locally everything runs, including goldens:  flutter test   (refresh on purpose with --update-goldens)
+tags:
+  golden:

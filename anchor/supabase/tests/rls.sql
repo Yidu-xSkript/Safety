@@ -218,6 +218,32 @@ select t.as_user(2);
 do $$ begin assert (select count(*) from devices) = 0, 'Teo cannot see Mika''s push token'; end $$;
 reset role;
 
+-- @test export_my_data is all mine and only mine
+select t.as_user(1);
+do $$ declare d jsonb; begin
+  d := export_my_data();
+  assert d->'profile'->>'display_name' = 'Mika', 'my profile';
+  assert jsonb_array_length(d->'check_ins') = (select count(*) from check_ins where user_id = t.u(1)), 'all my pledges, and no more';
+  assert d->'check_ins'->0->>'note' is not null or true, 'notes are included when there are any';
+  assert jsonb_array_length(d->'habits') = 1 and d->'habits'->0->>'title' = 'Reading', 'only my habit, not Teo''s';
+  assert jsonb_array_length(d->'replies_sent') = 1, 'the hello I sent';
+  assert d::text not like '%' || t.u(2)::text || '%', 'no partner id appears anywhere';
+  assert not (d ? 'devices'), 'push tokens are never exported';
+end $$;
+select t.as_user(2);
+do $$ declare d jsonb; begin
+  d := export_my_data();
+  assert d->'profile'->>'display_name' = 'Teo', 'and Teo gets his own';
+  assert jsonb_array_length(d->'replies_received') = 1, 'what he received';
+  assert d::text not like '%Hard night%', 'never Mika''s note';
+end $$;
+select t.as_user(3);
+do $$ declare d jsonb; begin
+  d := export_my_data();
+  assert jsonb_array_length(d->'check_ins') = 0 and jsonb_array_length(d->'habits') = 0, 'an outsider exports nothing but their own empty shell';
+end $$;
+reset role;
+
 -- @test register_device hands a token to its newest owner
 select t.as_user(1); select register_device('android', 'tok-shared');
 select t.as_user(2); select register_device('ios', 'tok-shared');
@@ -247,8 +273,27 @@ reset role;
 
 -- @test anonymous callers cannot use the RPCs
 set role anon;
+select t.throws('select export_my_data()', 'permission denied');
 select t.throws('select create_pod()', 'permission denied');
 select t.throws($q$ select join_pod('AAAAAA') $q$, 'permission denied');
 select t.throws($q$ select register_device('android', 'x') $q$, 'permission denied');
 select t.throws('select count(*) from check_ins', 'permission denied');
+reset role;
+
+-- @test deleting an account removes its data, and the partner keeps an archived pod
+-- (Mika created the first pod: before 0003 this delete failed on pods.created_by)
+delete from auth.users where id = t.u(1);
+do $$ begin
+  assert (select count(*) from profiles where id = t.u(1)) = 0, 'profile gone';
+  assert (select count(*) from check_ins where user_id = t.u(1)) = 0, 'check-ins gone';
+  assert (select count(*) from habits where user_id = t.u(1)) = 0, 'habits gone';
+  assert (select count(*) from habit_logs where user_id = t.u(1)) = 0, 'ticks gone';
+  assert (select count(*) from urge_events where user_id = t.u(1)) = 0, 'urges gone';
+  assert (select count(*) from pod_members where user_id = t.u(1)) = 0, 'memberships gone';
+  assert (select count(*) from encouragements where from_user = t.u(1) or to_user = t.u(1)) = 0, 'replies gone';
+  assert (select count(*) from check_ins where user_id = t.u(2)) >= 1, 'Teo keeps his own data';
+  assert (select count(*) from pods where created_by is null) >= 1, 'the pod outlives its creator';
+end $$;
+select t.as_user(2);
+do $$ begin assert (select status from my_pod()) = 'archived', 'Teo still sees an ended pod'; end $$;
 reset role;

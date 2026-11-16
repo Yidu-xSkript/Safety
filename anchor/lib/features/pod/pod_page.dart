@@ -5,12 +5,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/adaptive/adaptive_extras.dart';
 import '../../core/adaptive/adaptive_page.dart';
 import '../../core/adaptive/adaptive_widgets.dart';
+import '../../core/app_lock.dart';
+import '../../core/backend/pod_backend.dart' show PodError;
 import '../../core/reminders.dart';
+import '../../core/share.dart';
 import '../../l10n/app_localizations.dart';
 import '../urge/urge_screen.dart' show kShowCrisisResources;
 import 'account_controller.dart';
 import 'domain/care.dart';
 import 'email_flow.dart';
+import '../lock/lock_controller.dart';
+import '../today/solo_controller.dart';
+import 'pairing_screens.dart' show podErrorText;
 import 'pod_controller.dart';
 import 'push_controller.dart';
 import 'settings_controller.dart';
@@ -41,6 +47,13 @@ class _PodPageState extends ConsumerState<PodPage> {
     if (ok) await settings.setReminder(const TimeOfDay(hour: kDefaultReminderHour, minute: kDefaultReminderMinute));
   }
 
+  /// Turning the lock on or off asks the system first: proof it works, and nobody with your unlocked phone can switch it off.
+  Future<void> _toggleLock(bool on) async {
+    final l = AppLocalizations.of(context);
+    final ok = await ref.read(appLockServiceProvider).authenticate(l.lockReason);
+    if (ok) await ref.read(settingsProvider.notifier).setAppLock(on);
+  }
+
   Future<void> _pickTime(TimeOfDay current) async {
     final t = await pickTime(context, current);
     if (t != null) await ref.read(settingsProvider.notifier).setReminder(t);
@@ -50,6 +63,39 @@ class _PodPageState extends ConsumerState<PodPage> {
     final l = AppLocalizations.of(context);
     final ok = await adaptiveConfirm(context, title: l.leaveTitle, body: l.leaveBody(partner), confirmLabel: l.settingsLeave, destructive: true);
     if (ok) await ref.read(podProvider.notifier).leavePod();
+  }
+
+  Future<void> _export() async {
+    final l = AppLocalizations.of(context);
+    try {
+      final json = await ref.read(podProvider.notifier).exportJson();
+      await ref.read(shareFileProvider)('anchor-export.json', json);
+    } catch (_) {
+      if (mounted) await adaptiveMessage(context, l.exportFailed);
+    }
+  }
+
+  Future<void> _delete(String partner, bool paired) async {
+    final l = AppLocalizations.of(context);
+    final ok = await adaptiveConfirm(
+      context,
+      title: l.deleteAccountTitle,
+      body: paired ? l.deleteBodyPod(partner) : l.deleteBodySolo,
+      confirmLabel: l.deleteConfirm,
+      destructive: true,
+    );
+    if (!ok) return;
+    try {
+      await ref.read(accountProvider.notifier).deleteAccount();
+    } on PodError catch (e) {
+      if (mounted) await adaptiveMessage(context, podErrorText(l, e));
+      return;
+    }
+    // A clean slate: every piece of state reloads from the (now empty) storage and the app is back at Welcome.
+    for (final p in [soloProvider, podProvider, settingsProvider, pushProvider, accountProvider, lockProvider]) {
+      ref.invalidate(p);
+    }
+    ref.invalidate(secureHiddenProvider);
   }
 
   Future<void> _editNumber(String partner, String? current) async {
@@ -69,10 +115,19 @@ class _PodPageState extends ConsumerState<PodPage> {
     final partner = pod?.pod?.partnerName ?? '';
     final reminder = settings?.reminder;
     final ios = isIOS(context);
+    final lockSupported = ref.watch(lockSupportedProvider).value ?? false;
+    final lockOn = lockSupported && (settings?.appLock ?? true);
+    final hideOn = settings?.hideInSwitcher ?? true;
+    // A switch needs its own accessible name: the row's title is a separate node.
+    // iOS's switch is 51x31pt by design; give its hit area the 44pt minimum (the whole row also toggles).
+    Widget named(String label, Widget w) => Semantics(label: label, child: SizedBox(width: 64, height: ios ? 44 : 48, child: Center(child: w)));
+    Widget toggle(String label, bool v, ValueChanged<bool>? f) =>
+        named(label, ios ? CupertinoSwitch(value: v, onChanged: f) : Switch(value: v, onChanged: f));
 
-    final reminderSwitch = ios
-        ? CupertinoSwitch(value: reminder != null, onChanged: _toggleReminder)
-        : Switch(value: reminder != null, onChanged: _toggleReminder);
+    final reminderSwitch = named(
+      l.settingsReminder,
+      ios ? CupertinoSwitch(value: reminder != null, onChanged: _toggleReminder) : Switch(value: reminder != null, onChanged: _toggleReminder),
+    );
 
     return AdaptivePage(
       title: l.tabPod,
@@ -106,6 +161,21 @@ class _PodPageState extends ConsumerState<PodPage> {
               trailing: push.enabled ? null : AdaptiveButton(label: l.turnOn, kind: ButtonKind.text, onPressed: () => ref.read(pushProvider.notifier).enable()),
             ),
         ]),
+        const SizedBox(height: 16),
+        SettingsSection(rows: [
+          SettingsRow(
+            title: l.settingsAppLock,
+            subtitle: lockSupported ? l.appLockSubtitle : l.appLockUnavailable,
+            trailing: toggle(l.settingsAppLock, lockOn, lockSupported ? _toggleLock : null),
+            onTap: lockSupported ? () => _toggleLock(!lockOn) : null, // the whole row is the target, not just the switch
+          ),
+          SettingsRow(
+            title: l.settingsHide,
+            subtitle: ios ? l.hideSubtitleIos : l.hideSubtitleAndroid,
+            trailing: toggle(l.settingsHide, hideOn, (v) => ref.read(settingsProvider.notifier).setHideInSwitcher(v)),
+            onTap: () => ref.read(settingsProvider.notifier).setHideInSwitcher(!hideOn),
+          ),
+        ]),
         if (pod?.pod != null) ...[
           const SizedBox(height: 16),
           SettingsSection(rows: [
@@ -118,6 +188,11 @@ class _PodPageState extends ConsumerState<PodPage> {
             SettingsRow(title: l.settingsLeave, destructive: true, onTap: () => _leave(partner)),
           ]),
         ],
+        const SizedBox(height: 16),
+        SettingsSection(rows: [
+          SettingsRow(title: l.settingsExport, subtitle: l.exportSubtitle, onTap: _export),
+          SettingsRow(title: l.settingsDelete, destructive: true, onTap: () => _delete(partner, pod?.pod != null)),
+        ]),
         const SizedBox(height: 24),
         Text(l.notTreatment, style: t.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
       ],

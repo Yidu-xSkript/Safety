@@ -3,8 +3,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:anchor/core/backend/pod_backend.dart';
+import 'package:anchor/core/app_lock.dart';
 import 'package:anchor/core/push/push_service.dart';
 import 'package:anchor/core/reminders.dart';
+import 'package:anchor/core/share.dart';
 import 'package:anchor/core/shortcuts.dart';
 import 'package:anchor/features/pod/pod_controller.dart';
 import 'package:anchor/features/today/solo_controller.dart';
@@ -17,6 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness.dart';
 import 'fake_backend.dart';
+import 'fake_lock.dart';
 
 class FakePush implements PushService {
   FakePush({this.supported = true, this.grant = true, this.tok = 'tok-1', this.initial});
@@ -124,6 +127,9 @@ class Scenario {
     AppShortcuts? shortcuts,
     Future<bool> Function(Uri)? opener,
     ReminderService? reminders,
+    AppLockService? lock,
+    PrivacyService? privacy,
+    Future<void> Function(String, String)? share,
     bool online = true,
   }) async {
     mika.online = online;
@@ -137,6 +143,9 @@ class Scenario {
         pushServiceProvider.overrideWithValue(push ?? NoPush()),
         shortcutsProvider.overrideWithValue(shortcuts ?? NoShortcuts()),
         reminderServiceProvider.overrideWithValue(reminders ?? FakeReminders()),
+        appLockServiceProvider.overrideWithValue(lock ?? FakeAppLock()),
+        privacyServiceProvider.overrideWithValue(privacy ?? FakePrivacy()),
+        if (share != null) shareFileProvider.overrideWithValue(share),
         if (opener != null) urlOpenerProvider.overrideWithValue(opener),
       ],
       child: const AnchorApp(),

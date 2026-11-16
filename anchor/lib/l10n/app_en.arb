@@ -443,5 +443,30 @@
   "inSync": "In sync",
   "sayHello": "Say hello",
   "replyHello": "Just saying hello.",
-  "reminderBody": "Your daily check-in is open."
+  "reminderBody": "Your daily check-in is open.",
+  "lockTitle": "Anchor is locked",
+  "unlock": "Unlock",
+  "lockReason": "Unlock Anchor",
+  "settingsAppLock": "App lock",
+  "appLockSubtitle": "Face, fingerprint or your phone's passcode",
+  "appLockUnavailable": "Not available on this phone",
+  "settingsHide": "Hide in app switcher",
+  "hideSubtitleAndroid": "Shows nothing when you switch apps. Also blocks screenshots.",
+  "hideSubtitleIos": "Shows nothing when you switch apps.",
+  "settingsExport": "Export my data",
+  "exportSubtitle": "Everything you have saved, as a file",
+  "settingsDelete": "Delete account",
+  "deleteAccountTitle": "Delete your account?",
+  "deleteBodyPod": "This permanently deletes your check-ins, habits and notes from our servers and from this phone. {name} will be told your pod has changed. This can't be undone.",
+  "@deleteBodyPod": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteBodySolo": "This permanently deletes everything Anchor has stored, on this phone and on our servers. This can't be undone.",
+  "deleteConfirm": "Delete everything",
+  "ok": "OK",
+  "exportFailed": "Couldn't prepare your data. Check your connection and try again."
 }

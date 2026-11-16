@@ -47,6 +47,8 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Anchor uses Face ID to keep your pod private.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

@@ -1,5 +1,6 @@
 // The pairing screens, driven like a person would, against the in-memory server.
 import 'package:anchor/core/backend/pod_backend.dart';
+import 'package:anchor/core/app_lock.dart';
 import 'package:anchor/features/pod/pairing_screens.dart';
 import 'package:anchor/features/pod/pod_controller.dart';
 import 'package:anchor/features/today/solo_controller.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fakes/fake_backend.dart';
+import 'fakes/fake_lock.dart';
 import 'harness.dart';
 
 final textField = find.byWidgetPredicate((w) => w is TextField || w is CupertinoTextField);
@@ -21,7 +23,11 @@ Future<void> launch(WidgetTester t, PodBackend backend) async {
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
   await t.pumpWidget(ProviderScope(
-    overrides: [clockProvider.overrideWithValue(() => testNow), backendProvider.overrideWithValue(backend)],
+    overrides: [
+      clockProvider.overrideWithValue(() => testNow),
+      backendProvider.overrideWithValue(backend),
+      appLockServiceProvider.overrideWithValue(FakeAppLock()),
+    ],
     child: const AnchorApp(),
   ));
   await t.pumpAndSettle();
@@ -148,7 +154,11 @@ void main() {
     var clock = testNow; // the app and the server share one controllable clock
     final server = FakeServer(now: () => clock);
     Widget app() => ProviderScope(
-          overrides: [clockProvider.overrideWithValue(() => clock), backendProvider.overrideWithValue(FakeBackend(server, 'mika'))],
+          overrides: [
+            clockProvider.overrideWithValue(() => clock),
+            backendProvider.overrideWithValue(FakeBackend(server, 'mika')),
+            appLockServiceProvider.overrideWithValue(FakeAppLock()),
+          ],
           child: const AnchorApp(),
         );
     t.view.physicalSize = const Size(400, 1600);

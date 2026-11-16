@@ -1,4 +1,7 @@
 // Goldens for the hard moment (test font = Ahem: layout, ring and colour, not typography).
+@Tags(['golden'])
+library;
+
 import 'package:anchor/core/backend/pod_backend.dart';
 import 'package:anchor/features/urge/contact.dart';
 import 'package:flutter/foundation.dart';

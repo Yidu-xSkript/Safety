@@ -1120,6 +1120,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your daily check-in is open.'**
   String get reminderBody;
+
+  /// No description provided for @lockTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Anchor is locked'**
+  String get lockTitle;
+
+  /// No description provided for @unlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get unlock;
+
+  /// No description provided for @lockReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock Anchor'**
+  String get lockReason;
+
+  /// No description provided for @settingsAppLock.
+  ///
+  /// In en, this message translates to:
+  /// **'App lock'**
+  String get settingsAppLock;
+
+  /// No description provided for @appLockSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Face, fingerprint or your phone\'s passcode'**
+  String get appLockSubtitle;
+
+  /// No description provided for @appLockUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available on this phone'**
+  String get appLockUnavailable;
+
+  /// No description provided for @settingsHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide in app switcher'**
+  String get settingsHide;
+
+  /// No description provided for @hideSubtitleAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows nothing when you switch apps. Also blocks screenshots.'**
+  String get hideSubtitleAndroid;
+
+  /// No description provided for @hideSubtitleIos.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows nothing when you switch apps.'**
+  String get hideSubtitleIos;
+
+  /// No description provided for @settingsExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export my data'**
+  String get settingsExport;
+
+  /// No description provided for @exportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything you have saved, as a file'**
+  String get exportSubtitle;
+
+  /// No description provided for @settingsDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account'**
+  String get settingsDelete;
+
+  /// No description provided for @deleteAccountTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete your account?'**
+  String get deleteAccountTitle;
+
+  /// No description provided for @deleteBodyPod.
+  ///
+  /// In en, this message translates to:
+  /// **'This permanently deletes your check-ins, habits and notes from our servers and from this phone. {name} will be told your pod has changed. This can\'t be undone.'**
+  String deleteBodyPod(String name);
+
+  /// No description provided for @deleteBodySolo.
+  ///
+  /// In en, this message translates to:
+  /// **'This permanently deletes everything Anchor has stored, on this phone and on our servers. This can\'t be undone.'**
+  String get deleteBodySolo;
+
+  /// No description provided for @deleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete everything'**
+  String get deleteConfirm;
+
+  /// No description provided for @ok.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get ok;
+
+  /// No description provided for @exportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t prepare your data. Check your connection and try again.'**
+  String get exportFailed;
 }
 
 class _AppLocalizationsDelegate

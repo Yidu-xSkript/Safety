@@ -11,14 +11,45 @@ import '../today/solo_controller.dart';
 
 const kReminderKey = 'anchor.reminder'; // 'off' or 'HH:MM'
 const kSecureDismissedKey = 'anchor.secure.dismissed';
+const kAppLockKey = 'anchor.applock'; // absent = default (on when the phone can lock), 'on', 'off'
+const kHideKey = 'anchor.hide'; // absent = default (on), 'on', 'off'
 
 /// Everything the Pod tab lets you change. All of it lives on this phone only.
 class Settings {
-  const Settings({this.reminder, this.partnerPhone, this.secureDismissed = 0});
+  const Settings({
+    this.reminder,
+    this.partnerPhone,
+    this.secureDismissed = 0,
+    this.appLock,
+    this.hideInSwitcher = true,
+  });
 
   final TimeOfDay? reminder; // null = off
   final String? partnerPhone; // never leaves the device
   final int secureDismissed; // the "secure your pod" card is shown at most twice
+
+  /// null = never chosen: the lock is on whenever this phone can lock (docs/SECURITY.md).
+  final bool? appLock;
+
+  /// Cover the app in the app switcher (and, on Android, block screenshots). On unless turned off.
+  final bool hideInSwitcher;
+
+  Settings copyWith({
+    TimeOfDay? reminder,
+    bool clearReminder = false,
+    String? partnerPhone,
+    bool clearPhone = false,
+    int? secureDismissed,
+    bool? appLock,
+    bool? hideInSwitcher,
+  }) =>
+      Settings(
+        reminder: clearReminder ? null : (reminder ?? this.reminder),
+        partnerPhone: clearPhone ? null : (partnerPhone ?? this.partnerPhone),
+        secureDismissed: secureDismissed ?? this.secureDismissed,
+        appLock: appLock ?? this.appLock,
+        hideInSwitcher: hideInSwitcher ?? this.hideInSwitcher,
+      );
 }
 
 class SettingsController extends AsyncNotifier<Settings> {
@@ -34,10 +65,13 @@ class SettingsController extends AsyncNotifier<Settings> {
       reminder = TimeOfDay(hour: int.parse(p[0]), minute: int.parse(p[1]));
     }
     final phone = _kv.get(kPartnerPhoneKey);
+    final lock = _kv.get(kAppLockKey);
     return Settings(
       reminder: reminder,
       partnerPhone: phone == null || phone.isEmpty ? null : phone,
       secureDismissed: int.tryParse(_kv.get(kSecureDismissedKey) ?? '') ?? 0,
+      appLock: lock == null ? null : lock == 'on',
+      hideInSwitcher: _kv.get(kHideKey) != 'off',
     );
   }
 
@@ -45,20 +79,30 @@ class SettingsController extends AsyncNotifier<Settings> {
 
   Future<void> setReminder(TimeOfDay? t) async {
     await _kv.set(kReminderKey, t == null ? 'off' : '${t.hour}:${t.minute}');
-    state = AsyncData(Settings(reminder: t, partnerPhone: _s.partnerPhone, secureDismissed: _s.secureDismissed));
+    state = AsyncData(t == null ? _s.copyWith(clearReminder: true) : _s.copyWith(reminder: t));
   }
 
   /// Empty or null removes it.
   Future<void> setPartnerPhone(String? phone) async {
     final clean = phone?.trim() ?? '';
     await _kv.set(kPartnerPhoneKey, clean);
-    state = AsyncData(Settings(reminder: _s.reminder, partnerPhone: clean.isEmpty ? null : clean, secureDismissed: _s.secureDismissed));
+    state = AsyncData(clean.isEmpty ? _s.copyWith(clearPhone: true) : _s.copyWith(partnerPhone: clean));
   }
 
   Future<void> dismissSecure() async {
     final n = _s.secureDismissed + 1;
     await _kv.set(kSecureDismissedKey, '$n');
-    state = AsyncData(Settings(reminder: _s.reminder, partnerPhone: _s.partnerPhone, secureDismissed: n));
+    state = AsyncData(_s.copyWith(secureDismissed: n));
+  }
+
+  Future<void> setAppLock(bool on) async {
+    await _kv.set(kAppLockKey, on ? 'on' : 'off');
+    state = AsyncData(_s.copyWith(appLock: on));
+  }
+
+  Future<void> setHideInSwitcher(bool on) async {
+    await _kv.set(kHideKey, on ? 'on' : 'off');
+    state = AsyncData(_s.copyWith(hideInSwitcher: on));
   }
 }
 

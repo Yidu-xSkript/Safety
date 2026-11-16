@@ -67,6 +67,9 @@ A month at a time, with previous/next (limited to where your history began, and 
 ### 12. Pod (built in Phase 4)
 Large title "Pod", then grouped lists (iOS inset grouped / Android tonal card): **Partner** (name); **Daily reminder** (switch; asks the system once; defaults to 9:30 PM; tap the time to change it; the reminder skips today once you have checked in; if the system said no it says so plainly); **Partner's number** (saved only on this phone; lets Call/Text appear); **Notifications** (on/off, "Turn on" re-asks); **Secure your pod** (email, then a 6-digit code; no password); **Leave pod** (destructive, a plain confirmation naming what happens and that it cannot be undone). The crisis-resource row stays behind a flag until the owner supplies a vetted list. App lock and Delete account arrive in Phase 5.
 
+### Lock, privacy and your data (built in Phase 5)
+**Lock screen:** "Anchor is locked", **Unlock** (the system prompt also appears by itself), and **Urge** (opens the grounding screen above the lock). It shows nothing about the pod. **Pod → privacy:** *App lock* (needs the system prompt to change; "Not available on this phone" when it cannot lock) and *Hide in app switcher* (also blocks screenshots on Android). **Pod → Your data:** *Export my data* (shares a JSON file) and *Delete account* (a plain confirmation that names what is erased and that it cannot be undone; nothing is erased if the server cannot be reached).
+
 ### Ended pod (built in Phase 4)
 When your partner leaves, Today explains ("Your pod has ended. You can still read your history together. Start a new pod when you are ready."), hides everything that writes (pledge, habits, hello), keeps the pod header, week strip and History readable, keeps the Urge screen working (it sends nothing), and offers one button, *Start a new pod*.
 

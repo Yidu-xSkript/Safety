@@ -87,6 +87,22 @@ Future<bool> adaptiveConfirm(
   return ok ?? false;
 }
 
+/// A short message that needs a tap to dismiss (an error that must not be missed).
+Future<void> adaptiveMessage(BuildContext context, String text) {
+  final l = AppLocalizations.of(context);
+  return showAdaptiveDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog.adaptive(
+      content: Text(text),
+      actions: [
+        isIOS(ctx)
+            ? CupertinoDialogAction(isDefaultAction: true, onPressed: () => Navigator.of(ctx).pop(), child: Text(l.ok))
+            : TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(l.ok)),
+      ],
+    ),
+  );
+}
+
 /// A time of day: Material's dial on Android, the wheel on iOS. Null when dismissed.
 Future<TimeOfDay?> pickTime(BuildContext context, TimeOfDay initial) async {
   if (!isIOS(context)) return showTimePicker(context: context, initialTime: initial);

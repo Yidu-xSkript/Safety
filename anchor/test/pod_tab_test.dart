@@ -53,7 +53,7 @@ void main() {
       await s.launch(t, reminders: rem);
       await podTab(t);
 
-      await t.tap(find.byType(Switch).evaluate().isNotEmpty ? find.byType(Switch) : find.byType(CupertinoSwitch));
+      await t.tap((find.byType(Switch).evaluate().isNotEmpty ? find.byType(Switch) : find.byType(CupertinoSwitch)).first); // the reminder is the first switch
       await t.pumpAndSettle();
       expect(rem.permissionRequests, 1);
       expect(find.text('9:30 PM'), findsOneWidget);
@@ -80,7 +80,7 @@ void main() {
       expect(rem.calls.last, (at: const TimeOfDay(hour: 21, minute: 30), skipToday: true), reason: 'no nagging after you have checked in');
 
       await podTab(t);
-      await t.tap(find.byType(Switch));
+      await t.tap(find.byType(Switch).first);
       await t.pumpAndSettle();
       expect(rem.calls.last.at, isNull);
       expect(find.text('Off'), findsOneWidget);
@@ -91,7 +91,7 @@ void main() {
       final rem = FakeReminders(grant: false);
       await s.launch(t, reminders: rem);
       await podTab(t);
-      await t.tap(find.byType(Switch));
+      await t.tap(find.byType(Switch).first);
       await t.pumpAndSettle();
       expect(find.text("Notifications are off for Anchor in your phone's settings."), findsOneWidget);
       expect(rem.calls.where((c) => c.at != null), isEmpty);

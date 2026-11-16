@@ -1,4 +1,7 @@
 // Goldens for History, the Pod tab and the ended pod (test font = Ahem: layout, glyphs and colour).
+@Tags(['golden'])
+library;
+
 import 'package:anchor/app/shell.dart';
 import 'package:anchor/core/local_day.dart';
 import 'package:anchor/features/rings/ring_model.dart';

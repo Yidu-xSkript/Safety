@@ -1,6 +1,7 @@
 // Supabase implementation of PodBackend. Schema and rules: supabase/migrations/0001_init.sql.
 // NOT yet exercised against a live project (none exists yet): the SQL is tested, this client is not.
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -91,6 +92,18 @@ class SupabaseBackend implements PodBackend {
 
   @override
   Future<SoloData> fetchPartner(PodInfo pod, DateTime today) => _guard(() => _person(pod.partnerId!, pod.partnerName ?? '', today));
+
+  @override
+  Future<void> deleteAccount() => _guard(() async {
+        if (_c.auth.currentSession == null) return; // never paired: nothing on the server
+        await _c.functions.invoke('delete-account'); // throws on a non-2xx answer
+        try {
+          await _c.auth.signOut(); // the user no longer exists; this just clears the stored session
+        } catch (_) {}
+      });
+
+  @override
+  Future<String> exportMyData() => _guard(() async => const JsonEncoder.withIndent('  ').convert(await _c.rpc('export_my_data')));
 
   @override
   Future<SoloData> fetchMine(DateTime today) => _guard(() async {

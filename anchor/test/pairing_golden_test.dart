@@ -1,4 +1,7 @@
 // Goldens for the pairing screens (test font = Ahem: layout and shapes, not typography).
+@Tags(['golden'])
+library;
+
 import 'package:anchor/features/pod/pod_controller.dart';
 import 'package:anchor/features/today/solo_controller.dart';
 import 'package:anchor/main.dart';

@@ -9,4 +9,7 @@ class MemoryKV implements KV {
 
   @override
   Future<void> set(String key, String value) async => values[key] = value;
+
+  @override
+  Future<void> clear() async => values.clear();
 }

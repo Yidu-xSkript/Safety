@@ -2,7 +2,7 @@
 
 A two-person accountability pod. Once a day each partner logs one honest line, ticks a few daily habits, and sees the other's state in real time. A single Urge button pings your partner and walks you through three calm minutes. Every day is a growth ring; an honest slip is a scar the tree grows past.
 
-Flutter (Android + iOS) · Supabase · adaptive Material 3 / Cupertino. Status: **Phases 0-4 built: theme, rings, shell, the daily loop, pairing with offline sync, the hard moment (Urge grounding, replies, push), and care (History, Pod settings, daily reminder, say hello, leaving, secure account and restore). The SQL, push rules and all app flows are tested; the Supabase client, real notifications and the Android/iOS native changes have not yet met a live project or a phone (see supabase/README.md, docs/PUSH.md).**
+Flutter (Android + iOS) · Supabase · adaptive Material 3 / Cupertino. Status: **Phases 0-5 built (code): the daily loop, pairing with offline sync, the hard moment, care features, and hardening (app lock, privacy cover, delete and export, accessibility checks, CI, icon, store docs). Everything is tested locally; the Supabase client, real notifications and the Android/iOS native changes have not yet met a live project or a phone. See supabase/README.md, docs/PUSH.md and docs/STORE.md.**
 
 > A tool, not treatment. Anchor supports recovery; it doesn't replace counselling, a support group or professional help.
 
@@ -19,6 +19,7 @@ Flutter (Android + iOS) · Supabase · adaptive Material 3 / Cupertino. Status: 
 | [docs/SCHEMA.md](docs/SCHEMA.md) | Postgres tables, RLS, RPCs, triggers, tests |
 | [docs/SECURITY.md](docs/SECURITY.md) | Privacy, notification wording, threat model |
 | [docs/PUSH.md](docs/PUSH.md) | Notifications end to end: wording, Firebase/APNs/Supabase setup, acceptance checklist |
+| [docs/STORE.md](docs/STORE.md) | Store listing, privacy answers, review notes, release checklist |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Phases with acceptance criteria |
 | [docs/PROMPT.md](docs/PROMPT.md) | Master and per-phase prompts to build it with Claude Code |
 | [supabase/README.md](supabase/README.md) | Backend files, running the SQL tests, connecting a project |
